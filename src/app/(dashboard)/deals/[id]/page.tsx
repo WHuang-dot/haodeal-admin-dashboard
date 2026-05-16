@@ -3,31 +3,20 @@
 import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
+import { useMutation } from "@/hooks/use-mutation";
+import { useConfirmDialog } from "@/hooks/use-confirm";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  ShoppingBag,
   AlertCircle,
   CheckCircle2,
   XCircle,
@@ -37,6 +26,13 @@ import {
   Save,
   ArrowLeft,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  Copy,
+  Check,
+  Pencil,
+  MousePointerClick,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -58,7 +54,6 @@ interface Deal {
   store_match_status: string | null;
   category_match_status: string | null;
   created_at: string;
-  updated_at: string;
   stores?: { name: string; name_cn: string; aliases: string[] | null; domains: string[] | null } | null;
   categories?: { category: string; subcategory: string; aliases: string[] | null } | null;
 }
@@ -67,8 +62,11 @@ interface Draft {
   id: string;
   title: string;
   body: string;
-  status: string;
+  status: "pending" | "approved" | "rejected" | "published";
+  model: string;
   created_at: string;
+  updated_at: string;
+  selected_image_ids: string[];
 }
 
 interface DealImage {
@@ -89,13 +87,13 @@ interface DealDetailResponse {
 }
 
 interface StoreItem {
-  code: string;
+  store_code: string;
   name: string;
   name_cn: string | null;
 }
 
 interface CategoryItem {
-  code: string;
+  category_code: string;
   category: string;
   subcategory: string;
 }
@@ -110,6 +108,21 @@ function formatField(label: string, value: string | number | null) {
   );
 }
 
+function getStatusVariant(status: string) {
+  switch (status) {
+    case "pending":
+      return "secondary";
+    case "approved":
+      return "default";
+    case "rejected":
+      return "destructive";
+    case "published":
+      return "outline";
+    default:
+      return "outline";
+  }
+}
+
 export default function DealDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -119,17 +132,19 @@ export default function DealDetailPage() {
   const [categoryCode, setCategoryCode] = useState<string>("");
   const [classifying, setClassifying] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  const { confirm, open, options, close } = useConfirmDialog();
 
   const detailUrl = useMemo(
     () => `/api/admin/deals/${id}?_t=${refreshKey}`,
     [id, refreshKey]
   );
 
-  const {
-    data,
-    loading,
-    error,
-  } = useApi<DealDetailResponse>(detailUrl);
+  const { data, loading, error } = useApi<DealDetailResponse>(detailUrl);
 
   const { data: storesResponse } = useApi<{ data: StoreItem[] }>("/api/admin/stores");
   const { data: categoriesResponse } = useApi<{ data: CategoryItem[] }>(
@@ -196,6 +211,129 @@ export default function DealDetailPage() {
     }
   };
 
+  const expandDraft = (draft: Draft) => {
+    if (expandedDraftId === draft.id) {
+      setExpandedDraftId(null);
+      setEditingDraftId(null);
+    } else {
+      setExpandedDraftId(draft.id);
+      setEditingDraftId(null);
+    }
+  };
+
+  const startEditDraft = (draft: Draft) => {
+    setEditingDraftId(draft.id);
+    setEditTitle(draft.title);
+    setEditBody(draft.body);
+  };
+
+  const cancelEditDraft = () => {
+    setEditingDraftId(null);
+  };
+
+  const saveDraft = async (draftId: string) => {
+    try {
+      const res = await fetch(`/api/admin/drafts/${draftId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle, body: editBody }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        toast.success("Draft saved");
+        setEditingDraftId(null);
+        setRefreshKey((k) => k + 1);
+      } else {
+        toast.error(json.error || "Failed to save draft");
+      }
+    } catch {
+      toast.error("Failed to save draft");
+    }
+  };
+
+  const copyDraftBody = async (body: string, draftId: string) => {
+    await navigator.clipboard.writeText(body);
+    setCopied(draftId);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const changeDraftStatus = (draft: Draft, newStatus: string) => {
+    confirm({
+      title: `Change to ${newStatus}`,
+      description: `Update "${draft.title}" status to ${newStatus}?`,
+      confirmText: "Update",
+      variant: newStatus === "rejected" ? "destructive" : "default",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/drafts/${draft.id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          const json = await res.json();
+          if (json.ok) {
+            toast.success(`Status updated to ${newStatus}`);
+            setRefreshKey((k) => k + 1);
+          } else {
+            toast.error(json.error || "Failed to update status");
+          }
+        } catch {
+          toast.error("Failed to update status");
+        }
+      },
+    });
+  };
+
+  const sendDraft = (draft: Draft) => {
+    confirm({
+      title: "Send Draft",
+      description: `Send "${draft.title}"?`,
+      confirmText: "Send",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/drafts/${draft.id}/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const json = await res.json();
+          if (json.ok) {
+            toast.success("Draft sent");
+            setRefreshKey((k) => k + 1);
+          } else {
+            toast.error(json.error || "Failed to send draft");
+          }
+        } catch {
+          toast.error("Failed to send draft");
+        }
+      },
+    });
+  };
+
+  const toggleImageForDraft = async (draft: Draft, imageId: string) => {
+    const currentIds = draft.selected_image_ids ?? [];
+    const isSelected = currentIds.includes(imageId);
+    const newIds = isSelected
+      ? currentIds.filter((iid) => iid !== imageId)
+      : [...currentIds, imageId];
+
+    try {
+      const res = await fetch(`/api/admin/drafts/${draft.id}/cover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_ids: newIds }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        toast.success(isSelected ? "Image removed" : "Image selected");
+        setRefreshKey((k) => k + 1);
+      } else {
+        toast.error(json.error || "Failed to update image selection");
+      }
+    } catch {
+      toast.error("Failed to update image selection");
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -244,8 +382,8 @@ export default function DealDetailPage() {
         </Link>
       </PageHeader>
 
+      {/* Deal Info + Classification */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Deal Info Card */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Deal Information</CardTitle>
@@ -345,41 +483,39 @@ export default function DealDetailPage() {
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Manual Classification</h4>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <Select
+                <div className="flex-1 space-y-1">
+                  <select
                     value={storeCode}
-                    onValueChange={(v) => setStoreCode(v ?? "")}
+                    onChange={(e) => setStoreCode(e.target.value)}
+                    className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select store..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stores.map((s) => (
-                        <SelectItem key={s.code} value={s.code}>
-                          {s.name_cn || s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="" className="text-muted-foreground">Select store...</option>
+                    {stores.map((s) => (
+                      <option key={s.store_code} value={s.store_code}>
+                        {s.name_cn || s.name || s.store_code}
+                      </option>
+                    ))}
+                  </select>
+                  {stores.length === 0 && (
+                    <p className="text-xs text-destructive">No stores loaded.</p>
+                  )}
                 </div>
-                <div className="flex-1">
-                  <Select
+                <div className="flex-1 space-y-1">
+                  <select
                     value={categoryCode}
-                    onValueChange={(v) => setCategoryCode(v ?? "")}
+                    onChange={(e) => setCategoryCode(e.target.value)}
+                    className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select category..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.subcategory
-                            ? `${c.category} / ${c.subcategory}`
-                            : c.category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="" className="text-muted-foreground">Select category...</option>
+                    {categories.map((c) => (
+                      <option key={c.category_code} value={c.category_code}>
+                        {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-destructive">No categories loaded.</p>
+                  )}
                 </div>
                 <Button
                   onClick={handleClassify}
@@ -410,117 +546,297 @@ export default function DealDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Side column */}
-        <div className="space-y-6">
-          {/* Images */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ImageIcon className="h-4 w-4" />
-                Images ({images.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {images.length === 0 ? (
-                <EmptyState
-                  icon={ImageIcon}
-                  title="No images"
-                  description="No images found for this deal."
-                />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {images.map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative aspect-square rounded-md border bg-muted overflow-hidden group cursor-pointer"
-                      onClick={() => window.open(img.r2_original_url || "", "_blank")}
+        {/* Images summary on the side */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Images ({images.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {images.length === 0 ? (
+              <EmptyState
+                icon={ImageIcon}
+                title="No images"
+                description="No images found for this deal."
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {images.map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative aspect-square rounded-md border bg-muted overflow-hidden group cursor-pointer"
+                    onClick={() => window.open(img.r2_original_url || "", "_blank")}
+                  >
+                    {img.r2_thumbnail_url ? (
+                      <img
+                        src={img.r2_thumbnail_url}
+                        alt={img.role || "Deal image"}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted-foreground">
+                        <ImageIcon className="h-6 w-6" />
+                      </div>
+                    )}
+                    <Badge
+                      className="absolute bottom-1 left-1 text-[10px] px-1 py-0"
+                      variant={img.role === "source" ? "secondary" : "default"}
                     >
-                      {img.r2_thumbnail_url ? (
-                        <img
-                          src={img.r2_thumbnail_url}
-                          alt={img.role || "Deal image"}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-muted-foreground">
-                          <ImageIcon className="h-6 w-6" />
-                        </div>
-                      )}
-                      {img.selected_for_draft && (
-                        <Badge
-                          className="absolute top-1 right-1 text-[10px] px-1 py-0"
-                          variant="default"
-                        >
-                          Selected
-                        </Badge>
-                      )}
-                      <Badge
-                        className="absolute bottom-1 left-1 text-[10px] px-1 py-0"
-                        variant={img.role === "source" ? "secondary" : "default"}
-                      >
-                        {img.role || "source"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      {img.role || "source"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Drafts */}
+      {/* Drafts Section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Related Drafts ({drafts.length})
+            Drafts ({drafts.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {drafts.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="No drafts"
-              description="No drafts have been generated for this deal yet."
+              title="No drafts yet"
+              description="Generate a draft to start editing and sending."
+              action={
+                <Button onClick={handleGenerate} disabled={generating}>
+                  {generating && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+                  Generate Draft
+                </Button>
+              }
             />
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {drafts.map((draft) => (
-                    <TableRow key={draft.id}>
-                      <TableCell className="max-w-md">
-                        <div className="truncate font-medium">
-                          {draft.title || "Untitled Draft"}
+            <div className="space-y-4">
+              {drafts.map((draft) => {
+                const isExpanded = expandedDraftId === draft.id;
+                const isEditing = editingDraftId === draft.id;
+                const selectedCount = draft.selected_image_ids?.length ?? 0;
+
+                return (
+                  <div
+                    key={draft.id}
+                    className="rounded-lg border bg-card overflow-hidden"
+                  >
+                    {/* Draft Header Row */}
+                    <div
+                      className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => expandDraft(draft)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">
+                            {draft.title || "Untitled Draft"}
+                          </span>
+                          <Badge variant={getStatusVariant(draft.status)}>
+                            {draft.status}
+                          </Badge>
+                          {selectedCount > 0 && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {selectedCount} img
+                            </Badge>
+                          )}
                         </div>
-                        {draft.body && (
-                          <div className="truncate text-xs text-muted-foreground mt-1">
-                            {draft.body.slice(0, 120)}
+                        <div className="text-xs text-muted-foreground mt-1 truncate">
+                          {draft.body.slice(0, 120)}
+                          {draft.body.length > 120 ? "..." : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {draft.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                changeDraftStatus(draft, "approved");
+                              }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                changeDraftStatus(draft, "rejected");
+                              }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        {draft.status !== "published" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sendDraft(draft);
+                            }}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isEditing) {
+                              cancelEditDraft();
+                            } else if (isExpanded) {
+                              startEditDraft(draft);
+                            } else {
+                              expandDraft(draft);
+                              startEditDraft(draft);
+                            }
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <div className="border-t px-4 py-4 space-y-4">
+                        {/* Draft Body */}
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">Title</label>
+                              <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">Body</label>
+                              <Textarea
+                                value={editBody}
+                                onChange={(e) => setEditBody(e.target.value)}
+                                rows={8}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={() => saveDraft(draft.id)}>
+                                <Save className="h-3.5 w-3.5 mr-1" />
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={cancelEditDraft}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-sm font-medium">Content</h5>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => copyDraftBody(draft.body, draft.id)}
+                              >
+                                {copied === draft.id ? (
+                                  <Check className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <Copy className="h-3 w-3 mr-1" />
+                                )}
+                                {copied === draft.id ? "Copied" : "Copy"}
+                              </Button>
+                            </div>
+                            <Textarea value={draft.body} readOnly rows={8} />
                           </div>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{draft.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(draft.created_at).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+
+                        {/* Image Selection */}
+                        <div>
+                          <h5 className="text-sm font-medium mb-2">
+                            Select Images ({selectedCount} selected)
+                          </h5>
+                          {images.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No images available for this deal.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                              {images.map((img) => {
+                                const isSelected = draft.selected_image_ids?.includes(img.id);
+                                return (
+                                  <div
+                                    key={img.id}
+                                    className={`relative aspect-square rounded-md border overflow-hidden cursor-pointer transition-all ${
+                                      isSelected
+                                        ? "border-primary ring-2 ring-primary/30"
+                                        : "border-border opacity-70 hover:opacity-100"
+                                    }`}
+                                    onClick={() => toggleImageForDraft(draft, img.id)}
+                                  >
+                                    {img.r2_thumbnail_url ? (
+                                      <img
+                                        src={img.r2_thumbnail_url}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-full items-center justify-center text-muted-foreground">
+                                        <ImageIcon className="h-4 w-4" />
+                                      </div>
+                                    )}
+                                    {isSelected && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                                      </div>
+                                    )}
+                                    <Badge
+                                      className="absolute bottom-0.5 left-0.5 text-[9px] px-1 py-0"
+                                      variant={img.role === "source" ? "secondary" : "default"}
+                                    >
+                                      {img.role || "source"}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={open}
+        onOpenChange={close}
+        title={options?.title ?? ""}
+        description={options?.description ?? ""}
+        confirmText={options?.confirmText}
+        cancelText={options?.cancelText}
+        variant={options?.variant}
+        onConfirm={options?.onConfirm ?? (() => {})}
+      />
     </div>
   );
 }

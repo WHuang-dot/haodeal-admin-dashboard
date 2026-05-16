@@ -42,7 +42,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Settings, Plus, Eye, Zap } from "lucide-react";
+import { Settings, Plus, Eye, Zap, Pencil } from "lucide-react";
 
 interface Prompt {
   id: string;
@@ -62,19 +62,23 @@ const KINDS = [
 ];
 
 function PromptForm({
+  initialData,
   onSubmit,
   onCancel,
   loading,
+  submitLabel,
 }: {
+  initialData?: Prompt;
   onSubmit: (data: Partial<Prompt>) => void;
   onCancel: () => void;
   loading: boolean;
+  submitLabel?: string;
 }) {
-  const [kind, setKind] = useState("extract");
-  const [name, setName] = useState("");
-  const [model, setModel] = useState("");
-  const [body, setBody] = useState("");
-  const [notes, setNotes] = useState("");
+  const [kind, setKind] = useState(initialData?.kind ?? "extract");
+  const [name, setName] = useState(initialData?.name ?? "");
+  const [model, setModel] = useState(initialData?.model ?? "");
+  const [body, setBody] = useState(initialData?.body ?? "");
+  const [notes, setNotes] = useState(initialData?.notes ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +95,7 @@ function PromptForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="kind">Kind</Label>
-        <Select value={kind} onValueChange={setKind}>
+        <Select value={kind} onValueChange={setKind} disabled={!!initialData}>
           <SelectTrigger>
             <SelectValue placeholder="Select kind" />
           </SelectTrigger>
@@ -152,7 +156,7 @@ function PromptForm({
           Cancel
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create Version"}
+          {loading ? "Saving..." : (submitLabel ?? "Create Version")}
         </Button>
       </DialogFooter>
     </form>
@@ -165,6 +169,7 @@ export default function PromptsPage() {
     `/api/admin/prompts?r=${refreshKey}`
   );
   const [createOpen, setCreateOpen] = useState(false);
+  const [editPrompt, setEditPrompt] = useState<Prompt | null>(null);
   const [viewPrompt, setViewPrompt] = useState<Prompt | null>(null);
   const confirmDialog = useConfirmDialog();
 
@@ -174,6 +179,18 @@ export default function PromptsPage() {
   >("/api/admin/prompts", {
     onSuccess: () => {
       setCreateOpen(false);
+      setRefreshKey((k) => k + 1);
+    },
+    onError: (msg) => alert(msg),
+  });
+
+  const { mutate: updatePrompt, loading: updating } = useMutation<
+    Partial<Prompt>,
+    Prompt
+  >(editPrompt ? `/api/admin/prompts/${editPrompt.id}` : "", {
+    method: "PUT",
+    onSuccess: () => {
+      setEditPrompt(null);
       setRefreshKey((k) => k + 1);
     },
     onError: (msg) => alert(msg),
@@ -335,6 +352,14 @@ export default function PromptsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditPrompt(prompt)}
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             {!prompt.active && (
                               <Button
                                 variant="ghost"
@@ -377,6 +402,26 @@ export default function PromptsPage() {
             onCancel={() => setCreateOpen(false)}
             loading={creating}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editPrompt} onOpenChange={(open) => !open && setEditPrompt(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Prompt</DialogTitle>
+            <DialogDescription>
+              Update prompt fields. Kind cannot be changed.
+            </DialogDescription>
+          </DialogHeader>
+          {editPrompt && (
+            <PromptForm
+              initialData={editPrompt}
+              onSubmit={(data) => updatePrompt(data)}
+              onCancel={() => setEditPrompt(null)}
+              loading={updating}
+              submitLabel="Save Changes"
+            />
+          )}
         </DialogContent>
       </Dialog>
 

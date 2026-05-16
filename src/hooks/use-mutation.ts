@@ -3,6 +3,7 @@ import { useState } from "react";
 interface UseMutationOptions<T, R> {
   onSuccess?: (data: R) => void;
   onError?: (error: string) => void;
+  method?: string;
 }
 
 export function useMutation<T, R>(
@@ -18,7 +19,7 @@ export function useMutation<T, R>(
 
     try {
       const res = await fetch(url, {
-        method: "POST",
+        method: options?.method ?? "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });

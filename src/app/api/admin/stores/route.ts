@@ -3,32 +3,26 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { withRole } from "@/lib/api/auth-guard";
 import { success, error, badRequest } from "@/lib/api/response";
 
-export async function GET(request: NextRequest) {
-  return withRole("admin", async () => {
-    try {
-      const { searchParams } = new URL(request.url);
-      const limit = parseInt(searchParams.get("limit") ?? "50", 10);
-      const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+export async function GET() {
+  try {
+    const { data, error: dbError, count } = await supabaseAdmin
+      .from("stores")
+      .select("*", { count: "exact" })
+      .order("name", { ascending: true })
+      .range(0, 499);
 
-      const { data, error: dbError, count } = await supabaseAdmin
-        .from("stores")
-        .select("*", { count: "exact" })
-        .order("name", { ascending: true })
-        .range(offset, offset + limit - 1);
+    if (dbError) throw dbError;
 
-      if (dbError) throw dbError;
-
-      return success({
-        data: data ?? [],
-        total: count ?? 0,
-        limit,
-        offset,
-      });
-    } catch (err) {
-      console.error("Stores list error:", err);
-      return error("Failed to fetch stores", "DB_ERROR");
-    }
-  });
+    return success({
+      data: data ?? [],
+      total: count ?? 0,
+      limit: 500,
+      offset: 0,
+    });
+  } catch (err) {
+    console.error("Stores list error:", err);
+    return error("Failed to fetch stores", "DB_ERROR");
+  }
 }
 
 export async function POST(request: NextRequest) {
