@@ -390,38 +390,42 @@ export default function PromptsPage() {
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle>New Prompt Version</DialogTitle>
             <DialogDescription>
               Create a new prompt version. Notes are required.
             </DialogDescription>
           </DialogHeader>
-          <PromptForm
-            onSubmit={(data) => createPrompt(data)}
-            onCancel={() => setCreateOpen(false)}
-            loading={creating}
-          />
+          <div className="overflow-y-auto">
+            <PromptForm
+              onSubmit={(data) => createPrompt(data)}
+              onCancel={() => setCreateOpen(false)}
+              loading={creating}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editPrompt} onOpenChange={(open) => !open && setEditPrompt(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Prompt</DialogTitle>
             <DialogDescription>
               Update prompt fields. Kind cannot be changed.
             </DialogDescription>
           </DialogHeader>
-          {editPrompt && (
-            <PromptForm
-              initialData={editPrompt}
-              onSubmit={(data) => updatePrompt(data)}
-              onCancel={() => setEditPrompt(null)}
-              loading={updating}
-              submitLabel="Save Changes"
-            />
-          )}
+          <div className="overflow-y-auto">
+            {editPrompt && (
+              <PromptForm
+                initialData={editPrompt}
+                onSubmit={(data) => updatePrompt(data)}
+                onCancel={() => setEditPrompt(null)}
+                loading={updating}
+                submitLabel="Save Changes"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -24,8 +24,20 @@ export async function GET(request: NextRequest) {
 
       if (dbError) throw dbError;
 
+      // Map DB field is_active to active for API
+      const mappedData = (data ?? []).map((p: any) => ({
+        id: p.id,
+        kind: p.kind,
+        name: p.name,
+        model: p.model,
+        active: p.is_active ?? false,
+        created_at: p.created_at,
+        body: p.body,
+        notes: p.notes,
+      }));
+
       return success({
-        data: data ?? [],
+        data: mappedData,
         total: count ?? 0,
         limit,
         offset,
