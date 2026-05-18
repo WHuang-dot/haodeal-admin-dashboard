@@ -125,7 +125,7 @@ export async function POST(
           r2_thumbnail_url: r2PublicUrl,
           r2_original_key: newKey,
           r2_thumbnail_key: newKey,
-          image_provider: "apimart",
+          image_provider: "r2",
         })
         .eq("id", id)
         .select("id, r2_original_url, r2_original_key")
