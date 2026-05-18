@@ -160,8 +160,11 @@ export async function pollImageTransformTask(
 ): Promise<string> {
   const start = Date.now();
   const base = config.taskUrlBase.replace(/\/+$/, "");
+  const attemptsByTimeout =
+    Math.ceil(config.pollTimeoutMs / config.pollIntervalMs) + 2;
+  const effectiveMaxAttempts = Math.max(config.maxAttempts, attemptsByTimeout);
 
-  for (let attempt = 1; attempt <= config.maxAttempts; attempt += 1) {
+  for (let attempt = 1; attempt <= effectiveMaxAttempts; attempt += 1) {
     if (Date.now() - start > config.pollTimeoutMs) {
       throw new Error("TASK_POLL_TIMEOUT");
     }
@@ -196,7 +199,7 @@ export async function pollImageTransformTask(
     await sleep(config.pollIntervalMs);
   }
 
-  throw new Error("TASK_POLL_MAX_ATTEMPTS_REACHED");
+  throw new Error("TASK_POLL_TIMEOUT");
 }
 
 export function appendSecReSuffix(key: string | null | undefined): string {
