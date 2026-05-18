@@ -752,8 +752,8 @@ export default function DealDetailPage() {
                     <div className="absolute top-1 right-1 flex gap-1">
                       <Button
                         size="xs"
-                        variant="default"
-                        className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-500 text-white"
+                        variant="secondary"
+                        className="h-7 px-2 text-[10px]"
                         disabled={regeneratingImageIds.has(img.id) || deletingImageIds.has(img.id)}
                         onClick={(e) => {
                           e.stopPropagation();
