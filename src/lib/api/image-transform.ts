@@ -14,9 +14,18 @@ type RuntimeSettingsRow = {
 
 type SubmitResponse = {
   code?: number;
-  data?: {
-    id?: string;
-  };
+  id?: string;
+  task_id?: string;
+  data?:
+    | {
+        id?: string;
+        task_id?: string;
+      }
+    | Array<{
+        id?: string;
+        task_id?: string;
+        status?: string;
+      }>;
 };
 
 type TaskResponse = {
@@ -124,9 +133,22 @@ export async function submitImageTransformTask(
   }
 
   const json = (await res.json()) as SubmitResponse;
-  const taskId = json?.data?.id;
+  const dataObj =
+    Array.isArray(json?.data) && json.data.length > 0 ? json.data[0] : json?.data;
+  const taskId =
+    dataObj?.id ||
+    dataObj?.task_id ||
+    json?.id ||
+    json?.task_id;
   if (!taskId) {
-    throw new Error("SUBMIT_TASK_ID_MISSING");
+    const topLevelKeys = Object.keys(json || {}).join(",");
+    const dataKeys =
+      json && json.data && typeof json.data === "object"
+        ? Object.keys(json.data).join(",")
+        : "";
+    throw new Error(
+      `SUBMIT_TASK_ID_MISSING(top=${topLevelKeys};data=${dataKeys})`
+    );
   }
 
   return taskId;
