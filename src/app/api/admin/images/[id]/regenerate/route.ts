@@ -9,6 +9,7 @@ import {
   pollImageTransformTask,
   submitImageTransformTask,
 } from "@/lib/api/image-transform";
+import { uploadBytesToR2 } from "@/lib/api/r2-upload";
 
 type ImageRow = {
   id: string;
@@ -81,20 +82,47 @@ export async function POST(
         pushDebug(e.phase, e.payload)
       );
       pushDebug("task.created", { taskId });
-      const newImageUrl = await pollImageTransformTask(config, taskId, (e) =>
+      const generatedImageUrl = await pollImageTransformTask(config, taskId, (e) =>
         pushDebug(e.phase, e.payload)
       );
-      pushDebug("task.completed", { taskId, newImageUrl });
+      pushDebug("task.completed", { taskId, generatedImageUrl });
       const newKey = appendSecReSuffix(
         image.r2_original_key || image.r2_thumbnail_key
       );
       pushDebug("image.key_generated", { newKey });
 
+      const downloadRes = await fetch(generatedImageUrl);
+      if (!downloadRes.ok) {
+        pushDebug("r2.download_error", {
+          status: downloadRes.status,
+          generatedImageUrl,
+        });
+        throw new Error(`R2_SOURCE_DOWNLOAD_FAILED_${downloadRes.status}`);
+      }
+      const contentType =
+        downloadRes.headers.get("content-type") || "image/png";
+      const buffer = await downloadRes.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      pushDebug("r2.download_ok", {
+        contentType,
+        byteLength: bytes.byteLength,
+      });
+
+      const r2PublicUrl = await uploadBytesToR2({
+        key: newKey,
+        bytes,
+        contentType,
+      });
+      pushDebug("r2.upload_ok", {
+        key: newKey,
+        publicUrl: r2PublicUrl,
+      });
+
       const { data: updated, error: updateError } = await supabaseAdmin
         .from("images")
         .update({
-          r2_original_url: newImageUrl,
-          r2_thumbnail_url: newImageUrl,
+          r2_original_url: r2PublicUrl,
+          r2_thumbnail_url: r2PublicUrl,
           r2_original_key: newKey,
           r2_thumbnail_key: newKey,
           image_provider: "apimart",
@@ -105,11 +133,17 @@ export async function POST(
         .single();
 
       if (updateError) {
+        pushDebug("db.update_error", {
+          message: updateError.message,
+          code: updateError.code,
+          details: updateError.details,
+          hint: updateError.hint,
+        });
         throw updateError;
       }
       pushDebug("db.updated", {
         imageId: updated?.id ?? id,
-        updatedUrl: updated?.r2_original_url ?? newImageUrl,
+        updatedUrl: updated?.r2_original_url ?? r2PublicUrl,
         updatedKey: updated?.r2_original_key ?? newKey,
       });
 
@@ -117,15 +151,32 @@ export async function POST(
         imageId: id,
         status: "completed",
         taskId,
-        newUrl: updated?.r2_original_url ?? newImageUrl,
+        newUrl: updated?.r2_original_url ?? r2PublicUrl,
         newKey: updated?.r2_original_key ?? newKey,
         debug: debugEvents,
       });
     } catch (err) {
       console.error("Image regenerate error:", err instanceof Error ? err.message : err);
 
-      const message = err instanceof Error ? err.message : "Image regenerate failed";
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message || "Image regenerate failed")
+          : "Image regenerate failed";
       pushDebug("request.error", { message });
+      if (typeof err === "object" && err !== null) {
+        const maybe = err as {
+          code?: unknown;
+          details?: unknown;
+          hint?: unknown;
+        };
+        pushDebug("request.error.raw", {
+          code: maybe.code,
+          details: maybe.details,
+          hint: maybe.hint,
+        });
+      }
 
       if (
         message === "APP_RUNTIME_SETTINGS_NOT_FOUND" ||
@@ -138,12 +189,13 @@ export async function POST(
 
       if (
         message.startsWith("SUBMIT_") ||
-        message.startsWith("TASK_")
+        message.startsWith("TASK_") ||
+        message.startsWith("R2_")
       ) {
         return error(message, "UPSTREAM_ERROR", { debug: debugEvents }, 502);
       }
 
-      return error("Failed to regenerate image", "DB_ERROR", {
+      return error(message || "Failed to regenerate image", "DB_ERROR", {
         debug: debugEvents,
       });
     }
