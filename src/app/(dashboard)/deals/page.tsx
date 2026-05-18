@@ -54,6 +54,8 @@ interface Deal {
   store_match_status: string | null;
   category_match_status: string | null;
   created_at: string;
+  likes?: number;
+  clicks?: number;
   stores?: { name: string; name_cn: string } | null;
   categories?: { category: string; subcategory: string } | null;
 }
@@ -300,6 +302,8 @@ export default function DealsPage() {
               <TableHead>Price</TableHead>
               <TableHead>Store</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Likes</TableHead>
+              <TableHead>Clicks</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -316,6 +320,12 @@ export default function DealsPage() {
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-5 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-10" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-10" />
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-5 w-16" />
@@ -336,7 +346,7 @@ export default function DealsPage() {
               ))
             ) : deals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-32 text-center">
+                <TableCell colSpan={10} className="h-32 text-center">
                   <EmptyState
                     icon={ShoppingBag}
                     title="No deals found"
@@ -392,6 +402,8 @@ export default function DealsPage() {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>{deal.likes ?? 0}</TableCell>
+                  <TableCell>{deal.clicks ?? 0}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{deal.status}</Badge>
                   </TableCell>
