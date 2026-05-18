@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
 import { getDealDisplayTitle } from "@/lib/deal-title";
 import { PageHeader } from "@/components/page-header";
@@ -96,6 +97,7 @@ function getCategoryLabel(deal: Deal) {
 }
 
 export default function DealsPage() {
+  const router = useRouter();
   const [offset, setOffset] = useState(0);
   const [tab, setTab] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -314,7 +316,11 @@ export default function DealsPage() {
               </TableRow>
             ) : (
               deals.map((deal) => (
-                <TableRow key={deal.id}>
+                <TableRow
+                  key={deal.id}
+                  className="cursor-pointer hover:bg-accent/40"
+                  onClick={() => router.push(`/deals/${deal.id}`)}
+                >
                   <TableCell className="max-w-xs">
                     <div
                       className="truncate font-medium"
@@ -362,6 +368,7 @@ export default function DealsPage() {
                   <TableCell className="text-right">
                     <Link
                       href={`/deals/${deal.id}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
