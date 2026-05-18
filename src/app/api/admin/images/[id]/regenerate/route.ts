@@ -126,7 +126,6 @@ export async function POST(
           r2_original_key: newKey,
           r2_thumbnail_key: newKey,
           image_provider: "apimart",
-          updated_at: new Date().toISOString(),
         })
         .eq("id", id)
         .select("id, r2_original_url, r2_original_key")
