@@ -34,6 +34,7 @@ import {
   Check,
   Pencil,
   MousePointerClick,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -142,6 +143,9 @@ export default function DealDetailPage() {
   const [classifying, setClassifying] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [regeneratingImageIds, setRegeneratingImageIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [deletingImageIds, setDeletingImageIds] = useState<Set<string>>(
     new Set()
   );
   const [regenerateLogs, setRegenerateLogs] = useState<RegenerateLogItem[]>([]);
@@ -368,7 +372,7 @@ export default function DealDetailPage() {
     }
   };
 
-  const handleRegenerateImage = async (imageId: string) => {
+  const executeRegenerateImage = async (imageId: string) => {
     if (regeneratingImageIds.has(imageId)) return;
 
     setRegenerateStartedAt((prev) => ({ ...prev, [imageId]: Date.now() }));
@@ -437,6 +441,54 @@ export default function DealDetailPage() {
         return next;
       });
     }
+  };
+
+  const handleRegenerateImage = (image: DealImage) => {
+    confirm({
+      title: "Re-generate Image",
+      description: `Re-generate image ${image.id.slice(0, 8)}...? This will overwrite current image URL.`,
+      confirmText: "Re-generate",
+      variant: "default",
+      onConfirm: async () => {
+        await executeRegenerateImage(image.id);
+      },
+    });
+  };
+
+  const handleDeleteImage = (image: DealImage) => {
+    if (deletingImageIds.has(image.id)) return;
+    confirm({
+      title: "Delete Image",
+      description: `Delete image ${image.id.slice(0, 8)}...? This will remove both R2 file and DB record.`,
+      confirmText: "Delete",
+      variant: "destructive",
+      onConfirm: async () => {
+        setDeletingImageIds((prev) => {
+          const next = new Set(prev);
+          next.add(image.id);
+          return next;
+        });
+        try {
+          const res = await fetch(`/api/admin/images/${image.id}`, {
+            method: "DELETE",
+          });
+          const json = await res.json();
+          if (!json.ok) {
+            throw new Error(json.error || "Failed to delete image");
+          }
+          toast.success("Image deleted");
+          setRefreshKey((k) => k + 1);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to delete image");
+        } finally {
+          setDeletingImageIds((prev) => {
+            const next = new Set(prev);
+            next.delete(image.id);
+            return next;
+          });
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -697,25 +749,40 @@ export default function DealDetailPage() {
                     >
                       {img.role || "source"}
                     </Badge>
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      className="absolute top-1 right-1 h-6 px-2 text-[10px]"
-                      disabled={regeneratingImageIds.has(img.id)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRegenerateImage(img.id);
-                      }}
-                    >
-                      {regeneratingImageIds.has(img.id) ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                          Regenerating
-                        </>
-                      ) : (
-                        "Re-generate"
-                      )}
-                    </Button>
+                    <div className="absolute top-1 right-1 flex gap-1">
+                      <Button
+                        size="xs"
+                        variant="default"
+                        className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-500 text-white"
+                        disabled={regeneratingImageIds.has(img.id) || deletingImageIds.has(img.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRegenerateImage(img);
+                        }}
+                      >
+                        {regeneratingImageIds.has(img.id) ? (
+                          <>
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                            Running
+                          </>
+                        ) : (
+                          "Re-generate"
+                        )}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="destructive"
+                        className="h-7 px-2 text-[10px]"
+                        disabled={deletingImageIds.has(img.id) || regeneratingImageIds.has(img.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteImage(img);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        {deletingImageIds.has(img.id) ? "Deleting" : "Delete"}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

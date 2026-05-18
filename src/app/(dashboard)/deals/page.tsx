@@ -4,9 +4,12 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
+import { useConfirmDialog } from "@/hooks/use-confirm";
 import { getDealDisplayTitle } from "@/lib/deal-title";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +38,7 @@ import {
   AlertCircle,
   ExternalLink,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 interface Deal {
@@ -98,6 +102,7 @@ function getCategoryLabel(deal: Deal) {
 
 export default function DealsPage() {
   const router = useRouter();
+  const { confirm, open, options, close } = useConfirmDialog();
   const [offset, setOffset] = useState(0);
   const [tab, setTab] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -155,6 +160,31 @@ export default function DealsPage() {
   const handleTabChange = (value: string) => {
     setTab(value);
     setOffset(0);
+  };
+
+  const handleDeleteDeal = (deal: Deal) => {
+    confirm({
+      title: "Delete Deal",
+      description: `Delete "${getDealDisplayTitle(deal)}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/deals/${deal.id}`, {
+            method: "DELETE",
+          });
+          const json = await res.json();
+          if (!json.ok) {
+            throw new Error(json.error || "Failed to delete deal");
+          }
+          toast.success("Deal deleted");
+          setRefreshKey((k) => k + 1);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to delete deal");
+          console.error("Delete deal failed:", err);
+        }
+      },
+    });
   };
 
   if (listError) {
@@ -366,14 +396,27 @@ export default function DealsPage() {
                     <Badge variant="outline">{deal.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link
-                      href={`/deals/${deal.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View
-                    </Link>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDeal(deal);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                      <Link
+                        href={`/deals/${deal.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        View
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -405,6 +448,19 @@ export default function DealsPage() {
           </Button>
         </div>
       </div>
+
+      {open && options && (
+        <ConfirmDialog
+          open={open}
+          onOpenChange={close}
+          title={options.title}
+          description={options.description}
+          confirmText={options.confirmText}
+          cancelText={options.cancelText}
+          variant={options.variant}
+          onConfirm={options.onConfirm}
+        />
+      )}
     </div>
   );
 }

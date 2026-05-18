@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 type UploadInput = {
   key: string;
@@ -47,4 +47,15 @@ export async function uploadBytesToR2(input: UploadInput): Promise<string> {
   );
 
   return buildPublicUrl(input.key);
+}
+
+export async function deleteObjectFromR2(key: string): Promise<void> {
+  const bucket = getRequiredEnv("R2_BUCKET");
+  const client = createR2Client();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
+  );
 }

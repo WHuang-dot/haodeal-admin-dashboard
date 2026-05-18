@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { withAuth } from "@/lib/api/auth-guard";
+import { withAuth, withRole } from "@/lib/api/auth-guard";
 import { success, error, notFound } from "@/lib/api/response";
 
 export async function GET(
@@ -29,8 +29,8 @@ export async function GET(
         .order("created_at", { ascending: false });
 
       // Images are associated with clusters, not deals directly
-      const clusterId = (deal as any).cluster_id;
-      let images: any[] = [];
+      const clusterId = (deal as { cluster_id?: string | null }).cluster_id;
+      let images: Array<Record<string, unknown>> = [];
       if (clusterId) {
         const { data: clusterImages } = await supabaseAdmin
           .from("images")
@@ -56,6 +56,36 @@ export async function GET(
     } catch (err) {
       console.error("Deal detail error:", err);
       return error("Failed to fetch deal details", "DB_ERROR");
+    }
+  });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withRole("operator", async () => {
+    try {
+      const { id } = await params;
+
+      const { data, error: dbError } = await supabaseAdmin
+        .from("deals")
+        .delete()
+        .eq("id", id)
+        .select("id")
+        .single();
+
+      if (dbError) {
+        if ((dbError as { code?: string }).code === "PGRST116") {
+          return notFound("Deal");
+        }
+        throw dbError;
+      }
+
+      return success({ id: data.id }, "Deal deleted");
+    } catch (err) {
+      console.error("Deal delete error:", err);
+      return error("Failed to delete deal", "DB_ERROR");
     }
   });
 }
