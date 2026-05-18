@@ -3,6 +3,23 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { withAuth, withRole } from "@/lib/api/auth-guard";
 import { success, error, notFound } from "@/lib/api/response";
 
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (typeof value === "boolean") return value ? 1 : 0;
+  return 0;
+}
+
+function pickMetric(entry: Record<string, unknown>, keys: string[]): number {
+  for (const key of keys) {
+    if (key in entry) return toNumber(entry[key]);
+  }
+  return 0;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,6 +45,43 @@ export async function GET(
         .eq("deal_id", id)
         .order("created_at", { ascending: false });
 
+      const draftIds = (drafts ?? []).map((d) => d.id);
+      let draftMetrics: Record<string, { likes: number; clicks: number }> = {};
+      if (draftIds.length > 0) {
+        const { data: sendRecords } = await supabaseAdmin
+          .from("draft_discord_sends")
+          .select("*")
+          .in("draft_id", draftIds);
+
+        draftMetrics = (sendRecords ?? []).reduce((acc, row) => {
+          const r = row as Record<string, unknown>;
+          const draftId = String(r.draft_id ?? "");
+          if (!draftId) return acc;
+
+          const likes = pickMetric(r, [
+            "like_count",
+            "likes",
+            "upvote_count",
+            "upvotes",
+            "reaction_count",
+            "reactions",
+            "thumbs_up_count",
+          ]);
+          const clicks = pickMetric(r, [
+            "click_count",
+            "clicks",
+            "total_clicks",
+            "url_click_count",
+            "url_clicks",
+          ]);
+
+          if (!acc[draftId]) acc[draftId] = { likes: 0, clicks: 0 };
+          acc[draftId].likes += likes;
+          acc[draftId].clicks += clicks;
+          return acc;
+        }, {} as Record<string, { likes: number; clicks: number }>);
+      }
+
       // Images are associated with clusters, not deals directly
       const clusterId = (deal as { cluster_id?: string | null }).cluster_id;
       let images: Array<Record<string, unknown>> = [];
@@ -49,7 +103,11 @@ export async function GET(
 
       return success({
         deal,
-        drafts: drafts ?? [],
+        drafts: (drafts ?? []).map((d) => ({
+          ...d,
+          likes: draftMetrics[d.id]?.likes ?? 0,
+          clicks: draftMetrics[d.id]?.clicks ?? 0,
+        })),
         images: images ?? [],
         updates: updates ?? [],
       });

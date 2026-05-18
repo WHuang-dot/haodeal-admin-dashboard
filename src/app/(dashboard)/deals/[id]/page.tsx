@@ -69,6 +69,8 @@ interface Draft {
   created_at: string;
   updated_at: string;
   selected_image_ids: string[];
+  likes?: number;
+  clicks?: number;
 }
 
 interface DealImage {
@@ -891,6 +893,12 @@ export default function DealDetailPage() {
                           </span>
                           <Badge variant={getStatusVariant(draft.status)}>
                             {draft.status}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            👍 {draft.likes ?? 0}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            👆 {draft.clicks ?? 0}
                           </Badge>
                           {selectedCount > 0 && (
                             <Badge variant="outline" className="text-[10px]">
