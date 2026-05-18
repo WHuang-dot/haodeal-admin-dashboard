@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApi } from "@/hooks/use-api";
 import { useConfirmDialog } from "@/hooks/use-confirm";
+import { getDealDisplayTitle } from "@/lib/deal-title";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
@@ -484,7 +485,7 @@ export default function ClustersPage() {
                         className="text-sm p-2 rounded bg-muted/50 flex items-center justify-between"
                       >
                         <span>
-                          {deal.title_en || deal.title_cn || "Untitled"}
+                          {getDealDisplayTitle(deal, "Untitled")}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {deal.platform}

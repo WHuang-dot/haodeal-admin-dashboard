@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/use-api";
+import { getDealDisplayTitle } from "@/lib/deal-title";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -78,10 +79,6 @@ const STATUS_OPTIONS = [
   { value: "expired", label: "Expired" },
   { value: "rejected", label: "Rejected" },
 ];
-
-function getTitle(deal: Deal) {
-  return deal.title_en || deal.title_cn || "Untitled Deal";
-}
 
 function getStoreLabel(deal: Deal) {
   if (deal.stores) {
@@ -319,8 +316,11 @@ export default function DealsPage() {
               deals.map((deal) => (
                 <TableRow key={deal.id}>
                   <TableCell className="max-w-xs">
-                    <div className="truncate font-medium" title={getTitle(deal)}>
-                      {getTitle(deal)}
+                    <div
+                      className="truncate font-medium"
+                      title={getDealDisplayTitle(deal)}
+                    >
+                      {getDealDisplayTitle(deal)}
                     </div>
                   </TableCell>
                   <TableCell>{deal.platform}</TableCell>

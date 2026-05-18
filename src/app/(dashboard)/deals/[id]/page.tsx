@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
 import { useConfirmDialog } from "@/hooks/use-confirm";
+import { getDealDisplayTitle } from "@/lib/deal-title";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
@@ -368,7 +369,7 @@ export default function DealDetailPage() {
     );
   }
 
-  const title = deal.title_en || deal.title_cn || "Untitled Deal";
+  const title = getDealDisplayTitle(deal);
 
   return (
     <div className="space-y-6">
