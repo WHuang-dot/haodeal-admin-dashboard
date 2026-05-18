@@ -133,6 +133,9 @@ export default function DealDetailPage() {
   const [categoryCode, setCategoryCode] = useState<string>("");
   const [classifying, setClassifying] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [regeneratingImageIds, setRegeneratingImageIds] = useState<Set<string>>(
+    new Set()
+  );
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -332,6 +335,37 @@ export default function DealDetailPage() {
       }
     } catch {
       toast.error("Failed to update image selection");
+    }
+  };
+
+  const handleRegenerateImage = async (imageId: string) => {
+    if (regeneratingImageIds.has(imageId)) return;
+
+    setRegeneratingImageIds((prev) => {
+      const next = new Set(prev);
+      next.add(imageId);
+      return next;
+    });
+
+    try {
+      const res = await fetch(`/api/admin/images/${imageId}/regenerate`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.ok) {
+        toast.success("Image regenerated");
+        setRefreshKey((k) => k + 1);
+      } else {
+        toast.error(json.error || "Failed to regenerate image");
+      }
+    } catch {
+      toast.error("Failed to regenerate image");
+    } finally {
+      setRegeneratingImageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(imageId);
+        return next;
+      });
     }
   };
 
@@ -587,6 +621,25 @@ export default function DealDetailPage() {
                     >
                       {img.role || "source"}
                     </Badge>
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      className="absolute top-1 right-1 h-6 px-2 text-[10px]"
+                      disabled={regeneratingImageIds.has(img.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRegenerateImage(img.id);
+                      }}
+                    >
+                      {regeneratingImageIds.has(img.id) ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Regenerating
+                        </>
+                      ) : (
+                        "Re-generate"
+                      )}
+                    </Button>
                   </div>
                 ))}
               </div>
