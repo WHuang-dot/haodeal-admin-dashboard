@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
 import { useConfirmDialog } from "@/hooks/use-confirm";
@@ -137,6 +137,7 @@ function getStatusVariant(status: string) {
 
 export default function DealDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -493,6 +494,30 @@ export default function DealDetailPage() {
     });
   };
 
+  const handleDeleteDeal = () => {
+    confirm({
+      title: "Delete Deal",
+      description: `Delete "${title}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/deals/${id}`, {
+            method: "DELETE",
+          });
+          const json = await res.json();
+          if (!json.ok) {
+            throw new Error(json.error || "Failed to delete deal");
+          }
+          toast.success("Deal deleted");
+          router.push("/deals");
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to delete deal");
+        }
+      },
+    });
+  };
+
   useEffect(() => {
     if (regeneratingImageIds.size === 0) return;
     const timer = setInterval(() => setNowTs(Date.now()), 1000);
@@ -538,13 +563,23 @@ export default function DealDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={title} description={`ID: ${deal.id}`}>
-        <Link
-          href="/deals"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteDeal}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete Deal
+          </Button>
+          <Link
+            href="/deals"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </div>
       </PageHeader>
 
       {/* Deal Info + Classification */}
