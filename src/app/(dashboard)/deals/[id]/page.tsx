@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
@@ -99,6 +99,14 @@ interface CategoryItem {
   subcategory: string;
 }
 
+interface RegenerateLogItem {
+  id: string;
+  ts: number;
+  imageId: string;
+  message: string;
+  level: "info" | "success" | "error";
+}
+
 function formatField(label: string, value: string | number | null) {
   if (value == null || value === "") return null;
   return (
@@ -136,6 +144,11 @@ export default function DealDetailPage() {
   const [regeneratingImageIds, setRegeneratingImageIds] = useState<Set<string>>(
     new Set()
   );
+  const [regenerateLogs, setRegenerateLogs] = useState<RegenerateLogItem[]>([]);
+  const [regenerateStartedAt, setRegenerateStartedAt] = useState<Record<string, number>>(
+    {}
+  );
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -161,6 +174,23 @@ export default function DealDetailPage() {
 
   const stores = storesResponse?.data ?? [];
   const categories = categoriesResponse?.data ?? [];
+
+  const pushRegenLog = (
+    imageId: string,
+    message: string,
+    level: "info" | "success" | "error" = "info"
+  ) => {
+    setRegenerateLogs((prev) => [
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ts: Date.now(),
+        imageId,
+        message,
+        level,
+      },
+      ...prev,
+    ].slice(0, 60));
+  };
 
   const handleClassify = async () => {
     if (!storeCode && !categoryCode) {
@@ -341,6 +371,8 @@ export default function DealDetailPage() {
   const handleRegenerateImage = async (imageId: string) => {
     if (regeneratingImageIds.has(imageId)) return;
 
+    setRegenerateStartedAt((prev) => ({ ...prev, [imageId]: Date.now() }));
+    pushRegenLog(imageId, "开始重生成，正在提交任务到 apimart...");
     setRegeneratingImageIds((prev) => {
       const next = new Set(prev);
       next.add(imageId);
@@ -348,17 +380,30 @@ export default function DealDetailPage() {
     });
 
     try {
+      pushRegenLog(imageId, "任务已提交，正在等待处理（通常 30-120 秒）...");
       const res = await fetch(`/api/admin/images/${imageId}/regenerate`, {
         method: "POST",
       });
       const json = await res.json();
       if (json.ok) {
+        const taskId = json?.data?.taskId as string | undefined;
+        if (taskId) {
+          pushRegenLog(imageId, `任务完成（task: ${taskId}），正在刷新图片...`, "success");
+        } else {
+          pushRegenLog(imageId, "任务完成，正在刷新图片...", "success");
+        }
         toast.success("Image regenerated");
         setRefreshKey((k) => k + 1);
       } else {
+        pushRegenLog(
+          imageId,
+          `任务失败：${json.error || "Failed to regenerate image"}`,
+          "error"
+        );
         toast.error(json.error || "Failed to regenerate image");
       }
     } catch {
+      pushRegenLog(imageId, "请求失败：网络异常或服务错误", "error");
       toast.error("Failed to regenerate image");
     } finally {
       setRegeneratingImageIds((prev) => {
@@ -366,8 +411,19 @@ export default function DealDetailPage() {
         next.delete(imageId);
         return next;
       });
+      setRegenerateStartedAt((prev) => {
+        const next = { ...prev };
+        delete next[imageId];
+        return next;
+      });
     }
   };
+
+  useEffect(() => {
+    if (regeneratingImageIds.size === 0) return;
+    const timer = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [regeneratingImageIds.size]);
 
   if (loading) {
     return (
@@ -649,6 +705,61 @@ export default function DealDetailPage() {
       </div>
 
       {/* Drafts Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Re-generate Logs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {regeneratingImageIds.size > 0 && (
+            <div className="rounded-md border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">
+              {Array.from(regeneratingImageIds).map((imgId) => {
+                const started = regenerateStartedAt[imgId];
+                const seconds = started ? Math.max(0, Math.floor((nowTs - started) / 1000)) : 0;
+                return (
+                  <div key={imgId} className="flex items-center justify-between">
+                    <span>图片 {imgId.slice(0, 8)}... 正在处理中</span>
+                    <span>{seconds}s</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {regenerateLogs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              还没有重生成日志。点击图片上的 Re-generate 后会在这里显示进度。
+            </p>
+          ) : (
+            <div className="max-h-56 overflow-auto rounded-md border">
+              {regenerateLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-3 border-b border-border/60 px-3 py-2 text-sm last:border-b-0"
+                >
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(log.ts).toLocaleTimeString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {log.imageId.slice(0, 8)}...
+                  </span>
+                  <span
+                    className={
+                      log.level === "error"
+                        ? "text-red-400"
+                        : log.level === "success"
+                        ? "text-green-400"
+                        : "text-foreground"
+                    }
+                  >
+                    {log.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
