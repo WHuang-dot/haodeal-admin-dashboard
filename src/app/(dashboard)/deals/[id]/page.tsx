@@ -372,7 +372,7 @@ export default function DealDetailPage() {
     if (regeneratingImageIds.has(imageId)) return;
 
     setRegenerateStartedAt((prev) => ({ ...prev, [imageId]: Date.now() }));
-    pushRegenLog(imageId, "开始重生成，正在提交任务到 apimart...");
+    pushRegenLog(imageId, "开始重生成：准备提交到 apimart");
     setRegeneratingImageIds((prev) => {
       const next = new Set(prev);
       next.add(imageId);
@@ -380,15 +380,35 @@ export default function DealDetailPage() {
     });
 
     try {
-      pushRegenLog(imageId, "任务已提交，正在等待处理（通常 30-120 秒）...");
+      pushRegenLog(imageId, "任务已提交，等待处理（通常 30-120 秒）");
       const res = await fetch(`/api/admin/images/${imageId}/regenerate`, {
         method: "POST",
       });
       const json = await res.json();
+      const debugEvents = (json?.data?.debug ||
+        json?.details?.debug ||
+        []) as Array<{ phase: string; payload: Record<string, unknown> }>;
+
+      if (Array.isArray(debugEvents) && debugEvents.length > 0) {
+        debugEvents.forEach((evt) => {
+          pushRegenLog(
+            imageId,
+            `[${evt.phase}] ${JSON.stringify(evt.payload)}`,
+            "info"
+          );
+        });
+      } else {
+        pushRegenLog(imageId, `[api.response] ${JSON.stringify(json)}`, "info");
+      }
+
       if (json.ok) {
         const taskId = json?.data?.taskId as string | undefined;
         if (taskId) {
-          pushRegenLog(imageId, `任务完成（task: ${taskId}），正在刷新图片...`, "success");
+          pushRegenLog(
+            imageId,
+            `任务完成（task: ${taskId}），正在刷新图片...`,
+            "success"
+          );
         } else {
           pushRegenLog(imageId, "任务完成，正在刷新图片...", "success");
         }
@@ -727,7 +747,7 @@ export default function DealDetailPage() {
 
           {regenerateLogs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              还没有重生成日志。点击图片上的 Re-generate 后会在这里显示进度。
+              还没有重生成日志。点击图片上的 Re-generate 后会在这里显示进度和响应详情。
             </p>
           ) : (
             <div className="max-h-56 overflow-auto rounded-md border">
@@ -1005,3 +1025,5 @@ export default function DealDetailPage() {
     </div>
   );
 }
+
+

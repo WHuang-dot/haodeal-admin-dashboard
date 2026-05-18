@@ -50,6 +50,10 @@ export type ImageTransformConfig = {
   pollTimeoutMs: number;
   maxAttempts: number;
 };
+export type ImageTransformDebugEvent = {
+  phase: string;
+  payload: Record<string, unknown>;
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -108,7 +112,8 @@ export async function getImageTransformConfig(): Promise<ImageTransformConfig> {
 
 export async function submitImageTransformTask(
   config: ImageTransformConfig,
-  imageUrl: string
+  imageUrl: string,
+  onDebug?: (event: ImageTransformDebugEvent) => void
 ): Promise<string> {
   const payload = {
     model: config.model,
@@ -129,10 +134,18 @@ export async function submitImageTransformTask(
   });
 
   if (!res.ok) {
+    onDebug?.({
+      phase: "submit.http_error",
+      payload: { status: res.status, submitUrl: config.submitUrl },
+    });
     throw new Error(`SUBMIT_REQUEST_FAILED_${res.status}`);
   }
 
   const json = (await res.json()) as SubmitResponse;
+  onDebug?.({
+    phase: "submit.response",
+    payload: { status: res.status, body: json as unknown as Record<string, unknown> },
+  });
   const dataObj =
     Array.isArray(json?.data) && json.data.length > 0 ? json.data[0] : json?.data;
   const taskId =
@@ -156,7 +169,8 @@ export async function submitImageTransformTask(
 
 export async function pollImageTransformTask(
   config: ImageTransformConfig,
-  taskId: string
+  taskId: string,
+  onDebug?: (event: ImageTransformDebugEvent) => void
 ): Promise<string> {
   const start = Date.now();
   const base = config.taskUrlBase.replace(/\/+$/, "");
@@ -178,11 +192,24 @@ export async function pollImageTransformTask(
     });
 
     if (!res.ok) {
+      onDebug?.({
+        phase: "poll.http_error",
+        payload: { attempt, status: res.status, taskUrl },
+      });
       throw new Error(`TASK_REQUEST_FAILED_${res.status}`);
     }
 
     const json = (await res.json()) as TaskResponse;
     const status = normalizeTaskStatus(json?.data?.status);
+    onDebug?.({
+      phase: "poll.response",
+      payload: {
+        attempt,
+        statusCode: res.status,
+        taskStatus: status || "unknown",
+        body: json as unknown as Record<string, unknown>,
+      },
+    });
 
     if (status === "completed") {
       const newUrl = json?.data?.result?.images?.[0]?.url?.[0];

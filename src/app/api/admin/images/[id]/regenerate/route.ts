@@ -5,6 +5,7 @@ import { success, error } from "@/lib/api/response";
 import {
   appendSecReSuffix,
   getImageTransformConfig,
+  ImageTransformDebugEvent,
   pollImageTransformTask,
   submitImageTransformTask,
 } from "@/lib/api/image-transform";
@@ -22,8 +23,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withRole("operator", async () => {
+    const debugEvents: ImageTransformDebugEvent[] = [];
+    const pushDebug = (phase: string, payload: Record<string, unknown>) => {
+      debugEvents.push({
+        phase,
+        payload,
+      });
+    };
+
     try {
       const { id } = await params;
+      pushDebug("request.start", { imageId: id });
 
       const { data: image, error: imageError } = await supabaseAdmin
         .from("images")
@@ -34,20 +44,51 @@ export async function POST(
         .single<ImageRow>();
 
       if (imageError || !image) {
-        return error("Image not found", "NOT_FOUND", undefined, 404);
+        return error(
+          "Image not found",
+          "NOT_FOUND",
+          { debug: debugEvents },
+          404
+        );
       }
 
       const sourceImageUrl = (image.r2_original_url || image.source_url || "").trim();
       if (!sourceImageUrl) {
-        return error("Source image URL is missing", "BAD_REQUEST", undefined, 400);
+        return error(
+          "Source image URL is missing",
+          "BAD_REQUEST",
+          { debug: debugEvents },
+          400
+        );
       }
+      pushDebug("image.loaded", {
+        imageId: image.id,
+        hasOriginalUrl: Boolean(image.r2_original_url),
+        hasSourceUrl: Boolean(image.source_url),
+      });
 
       const config = await getImageTransformConfig();
-      const taskId = await submitImageTransformTask(config, sourceImageUrl);
-      const newImageUrl = await pollImageTransformTask(config, taskId);
+      pushDebug("config.loaded", {
+        submitUrl: config.submitUrl,
+        taskUrlBase: config.taskUrlBase,
+        model: config.model,
+        pollIntervalMs: config.pollIntervalMs,
+        pollTimeoutMs: config.pollTimeoutMs,
+        maxAttempts: config.maxAttempts,
+        promptLength: config.prompt.length,
+      });
+      const taskId = await submitImageTransformTask(config, sourceImageUrl, (e) =>
+        pushDebug(e.phase, e.payload)
+      );
+      pushDebug("task.created", { taskId });
+      const newImageUrl = await pollImageTransformTask(config, taskId, (e) =>
+        pushDebug(e.phase, e.payload)
+      );
+      pushDebug("task.completed", { taskId, newImageUrl });
       const newKey = appendSecReSuffix(
         image.r2_original_key || image.r2_thumbnail_key
       );
+      pushDebug("image.key_generated", { newKey });
 
       const { data: updated, error: updateError } = await supabaseAdmin
         .from("images")
@@ -66,6 +107,11 @@ export async function POST(
       if (updateError) {
         throw updateError;
       }
+      pushDebug("db.updated", {
+        imageId: updated?.id ?? id,
+        updatedUrl: updated?.r2_original_url ?? newImageUrl,
+        updatedKey: updated?.r2_original_key ?? newKey,
+      });
 
       return success({
         imageId: id,
@@ -73,11 +119,13 @@ export async function POST(
         taskId,
         newUrl: updated?.r2_original_url ?? newImageUrl,
         newKey: updated?.r2_original_key ?? newKey,
+        debug: debugEvents,
       });
     } catch (err) {
       console.error("Image regenerate error:", err instanceof Error ? err.message : err);
 
       const message = err instanceof Error ? err.message : "Image regenerate failed";
+      pushDebug("request.error", { message });
 
       if (
         message === "APP_RUNTIME_SETTINGS_NOT_FOUND" ||
@@ -85,17 +133,19 @@ export async function POST(
         message.startsWith("MISSING_IMAGE_TRANSFORM_") ||
         message.startsWith("INVALID_")
       ) {
-        return error(message, "CONFIG_ERROR", undefined, 400);
+        return error(message, "CONFIG_ERROR", { debug: debugEvents }, 400);
       }
 
       if (
         message.startsWith("SUBMIT_") ||
         message.startsWith("TASK_")
       ) {
-        return error(message, "UPSTREAM_ERROR", undefined, 502);
+        return error(message, "UPSTREAM_ERROR", { debug: debugEvents }, 502);
       }
 
-      return error("Failed to regenerate image", "DB_ERROR");
+      return error("Failed to regenerate image", "DB_ERROR", {
+        debug: debugEvents,
+      });
     }
   });
 }
