@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -113,6 +114,7 @@ export default function DealsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const limit = 20;
 
@@ -312,24 +314,30 @@ export default function DealsPage() {
               key={deal.id}
               className="overflow-hidden transition-colors hover:border-primary/40"
             >
+              <div
+                className="relative aspect-[4/3] cursor-zoom-in bg-muted"
+                onClick={() => {
+                  const preview = deal.cover_image_url || deal.cover_thumbnail_url;
+                  if (preview) setPreviewUrl(preview);
+                }}
+              >
+                {deal.cover_thumbnail_url || deal.cover_image_url ? (
+                  <img
+                    src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
+                    alt={getDealDisplayTitle(deal)}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => router.push(`/deals/${deal.id}`)}
                 className="block w-full text-left"
               >
-                <div className="relative aspect-[4/3] bg-muted">
-                  {deal.cover_thumbnail_url || deal.cover_image_url ? (
-                    <img
-                      src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
-                      alt={getDealDisplayTitle(deal)}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
-                    </div>
-                  )}
-                </div>
                 <CardContent className="space-y-3 p-4">
                   <div
                     className="line-clamp-2 min-h-10 text-sm font-semibold leading-5"
@@ -433,6 +441,20 @@ export default function DealsPage() {
           onConfirm={options.onConfirm}
         />
       )}
+      <Dialog open={!!previewUrl} onOpenChange={(isOpen) => !isOpen && setPreviewUrl(null)}>
+        <DialogContent className="h-screen w-screen max-w-none rounded-none border-0 p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Deal Image Preview</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <img
+              src={previewUrl}
+              alt="Deal preview"
+              className="h-[calc(100vh-6rem)] w-full rounded-lg object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
