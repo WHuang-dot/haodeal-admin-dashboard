@@ -165,6 +165,8 @@ export default function DealsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [loadedDeals, setLoadedDeals] = useState<Deal[]>([]);
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
+  const [imageSrcOverride, setImageSrcOverride] = useState<Record<string, string>>({});
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const limit = 20;
@@ -215,6 +217,8 @@ export default function DealsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
     setLoadedDeals([]);
+    setFailedImageIds(new Set());
+    setImageSrcOverride({});
   }, [listQueryKey]);
 
   useEffect(() => {
@@ -250,6 +254,11 @@ export default function DealsPage() {
   }, [hasMore, limit, listLoading]);
 
   const displayDeals = useMemo(() => sortDeals(loadedDeals, sortBy), [loadedDeals, sortBy]);
+
+  const getCardImageSrc = (deal: Deal) => {
+    if (imageSrcOverride[deal.id]) return imageSrcOverride[deal.id];
+    return deal.cover_thumbnail_url || deal.cover_image_url || null;
+  };
 
   const handleDeleteDeal = (deal: Deal) => {
     confirm({
@@ -402,7 +411,8 @@ export default function DealsPage() {
             {displayDeals.map((deal) => {
               const storeLabel = getStoreLabel(deal);
               const categoryLabel = getCategoryLabel(deal);
-              const hasImage = Boolean(deal.cover_thumbnail_url || deal.cover_image_url);
+              const imageSrc = getCardImageSrc(deal);
+              const hasImage = Boolean(imageSrc) && !failedImageIds.has(deal.id);
               return (
                 <Card
                   key={deal.id}
@@ -411,7 +421,7 @@ export default function DealsPage() {
                   <div
                     className="relative aspect-[1/1] cursor-zoom-in overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-700/50 to-slate-900/85"
                     onClick={() => {
-                      const preview = deal.cover_image_url || deal.cover_thumbnail_url;
+                      const preview = imageSrc || deal.cover_image_url || deal.cover_thumbnail_url;
                       if (preview) {
                         setPreviewUrl(preview);
                         setPreviewFullscreen(false);
@@ -420,9 +430,34 @@ export default function DealsPage() {
                   >
                     {hasImage ? (
                       <img
-                        src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
+                        src={imageSrc || ""}
                         alt={getDealDisplayTitle(deal)}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => {
+                          const thumbnail = deal.cover_thumbnail_url;
+                          const original = deal.cover_image_url;
+                          const current = imageSrc;
+                          if (
+                            thumbnail &&
+                            original &&
+                            thumbnail !== original &&
+                            current === thumbnail
+                          ) {
+                            setImageSrcOverride((prev) => ({
+                              ...prev,
+                              [deal.id]: original,
+                            }));
+                            return;
+                          }
+
+                          setFailedImageIds((prev) => {
+                            const next = new Set(prev);
+                            next.add(deal.id);
+                            return next;
+                          });
+                        }}
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
