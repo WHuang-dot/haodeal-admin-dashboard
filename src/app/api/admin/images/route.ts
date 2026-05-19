@@ -16,6 +16,7 @@ type ImageDbRow = {
   r2_thumbnail_key: string | null;
   image_provider: string | null;
   deal_id: string | null;
+  cluster_id: string | null;
   draft_id: string | null;
 };
 
@@ -52,10 +53,48 @@ export async function GET(request: NextRequest) {
 
       if (dbError) throw dbError;
 
+      const clusterIdsNeedingFallback = Array.from(
+        new Set(
+          (rawData ?? [])
+            .map((img) => img as ImageDbRow)
+            .filter((img) => !img.deal_id && typeof img.cluster_id === "string" && img.cluster_id.length > 0)
+            .map((img) => img.cluster_id as string)
+        )
+      );
+
+      const clusterToDealMap = new Map<string, string>();
+      if (clusterIdsNeedingFallback.length > 0) {
+        const { data: clusterRows, error: clusterError } = await supabaseAdmin
+          .from("deal_clusters")
+          .select("cluster_id, deal_id")
+          .in("cluster_id", clusterIdsNeedingFallback);
+
+        if (clusterError) throw clusterError;
+
+        for (const row of clusterRows ?? []) {
+          const clusterId = (row as { cluster_id?: unknown }).cluster_id;
+          const dealIdFromCluster = (row as { deal_id?: unknown }).deal_id;
+          if (
+            typeof clusterId === "string" &&
+            typeof dealIdFromCluster === "string" &&
+            !clusterToDealMap.has(clusterId)
+          ) {
+            clusterToDealMap.set(clusterId, dealIdFromCluster);
+          }
+        }
+      }
+
       const dealIds = Array.from(
         new Set(
           (rawData ?? [])
-            .map((img) => (img as ImageDbRow).deal_id)
+            .map((img) => {
+              const row = img as ImageDbRow;
+              if (row.deal_id) return row.deal_id;
+              if (row.cluster_id && clusterToDealMap.has(row.cluster_id)) {
+                return clusterToDealMap.get(row.cluster_id) ?? null;
+              }
+              return null;
+            })
             .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
         )
       );
@@ -86,6 +125,8 @@ export async function GET(request: NextRequest) {
       // Map DB field names to API field names
       const mappedData = (rawData ?? []).map((row) => {
         const img = row as ImageDbRow;
+        const resolvedDealId =
+          img.deal_id || (img.cluster_id ? clusterToDealMap.get(img.cluster_id) ?? null : null);
         return {
         id: img.id,
         url: img.r2_original_url || img.source_url || "",
@@ -96,11 +137,11 @@ export async function GET(request: NextRequest) {
         selected_for_draft: img.selected_for_draft || false,
         r2_key: img.r2_original_key || img.r2_thumbnail_key || "",
         provider: img.image_provider || "r2",
-        deal_id: img.deal_id,
+        deal_id: resolvedDealId,
         draft_id: img.draft_id,
         deal:
-          typeof img.deal_id === "string" && dealsMap.has(img.deal_id)
-            ? dealsMap.get(img.deal_id)
+          typeof resolvedDealId === "string" && dealsMap.has(resolvedDealId)
+            ? dealsMap.get(resolvedDealId)
             : null,
       }});
 
