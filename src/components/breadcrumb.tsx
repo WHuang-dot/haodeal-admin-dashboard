@@ -13,6 +13,7 @@ const routeLabels: Record<string, string> = {
   "/stores": "Stores",
   "/categories": "Categories",
   "/prompts": "Prompts",
+  "/settings": "Settings",
   "/images": "Images",
   "/webhooks": "Webhooks",
   "/audit-logs": "Audit Logs",

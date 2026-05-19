@@ -65,6 +65,7 @@ const navItems: NavItem[] = [
   { href: "/stores", label: "Stores", icon: Store, minRole: "admin" },
   { href: "/categories", label: "Categories", icon: Tags, minRole: "admin" },
   { href: "/prompts", label: "Prompts", icon: Settings, minRole: "admin" },
+  { href: "/settings", label: "Settings", icon: Settings, minRole: "admin" },
   { href: "/images", label: "Images", icon: ImageIcon, minRole: "viewer" },
   { href: "/webhooks", label: "Webhooks", icon: Webhook, minRole: "admin" },
   { href: "/audit-logs", label: "Audit Logs", icon: ClipboardList, minRole: "admin" },
