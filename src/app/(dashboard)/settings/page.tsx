@@ -58,8 +58,7 @@ function blockKeywordsToText(value: string[] | null | undefined): string {
 function textToBlockKeywords(value: string): string[] {
   return value
     .split(/\r?\n/)
-    .map((v) => v.trim())
-    .filter(Boolean);
+    .map((v) => v.trim());
 }
 
 export default function SettingsPage() {
