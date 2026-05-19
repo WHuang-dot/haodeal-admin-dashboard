@@ -44,6 +44,17 @@ function boolText(value: boolean | null | undefined) {
   return value ? "Enabled" : "Disabled";
 }
 
+function maskWebhookUrls(value: string): string {
+  return value
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      return "*".repeat(Math.max(8, Math.min(trimmed.length, 24)));
+    })
+    .join("\n");
+}
+
 export default function SettingsPage() {
   const { data, loading, error } = useApi<RuntimeSettings>(
     "/api/admin/settings/runtime"
@@ -94,13 +105,18 @@ export default function SettingsPage() {
         setDraft(null);
         toast.success("Settings saved");
         if (json.data?.deploy?.ok) {
-          toast.success("Deploy triggered");
+          toast.success(`Deploy triggered (${json.data.deploy.success}/${json.data.deploy.total})`);
         } else {
           toast.warning("Settings saved, but deploy not triggered");
         }
       } else {
         if (json.code === "DEPLOY_ERROR" && json.details?.save?.ok) {
-          toast.warning("Saved, but deploy failed");
+          const deploy = json.details?.deploy;
+          if (deploy?.total) {
+            toast.warning(`Saved, deploy partial failure (${deploy.success}/${deploy.total})`);
+          } else {
+            toast.warning("Saved, but deploy failed");
+          }
         } else {
           toast.error(json.error || "Failed to save settings");
         }
@@ -225,13 +241,22 @@ export default function SettingsPage() {
             Enable Comment
           </Label>
           <div>
-            <Label>Deploy Webhook URL</Label>
+            <Label>Deploy Webhook URL(s)</Label>
             <div className="mt-1 flex gap-2">
-              <Input
-                type={showWebhookUrl ? "text" : "password"}
-                value={form.deploy_webhook_url ?? ""}
-                onChange={(e) => setField("deploy_webhook_url", e.target.value)}
-                placeholder="http://coolify.../deploy?token=..."
+              <Textarea
+                value={
+                  showWebhookUrl
+                    ? form.deploy_webhook_url ?? ""
+                    : maskWebhookUrls(form.deploy_webhook_url ?? "")
+                }
+                onChange={(e) => {
+                  if (!showWebhookUrl) return;
+                  setField("deploy_webhook_url", e.target.value);
+                }}
+                placeholder={"http://coolify-1.../deploy?... \nhttp://coolify-2.../deploy?... \nhttp://coolify-3.../deploy?..."}
+                rows={4}
+                className="font-mono"
+                readOnly={!showWebhookUrl}
               />
               <Button type="button" variant="outline" onClick={() => setShowWebhookUrl((v) => !v)}>
                 {showWebhookUrl ? "Hide" : "Show"}

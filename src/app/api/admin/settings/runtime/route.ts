@@ -111,6 +111,14 @@ async function triggerDeploy(url: string) {
   };
 }
 
+function parseWebhookUrls(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  return value
+    .split(/\r?\n/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 export async function GET() {
   return withRole("admin", async () => {
     try {
@@ -169,8 +177,10 @@ export async function PATCH(request: NextRequest) {
 
       if (dbError) throw dbError;
 
-      const webhookUrl = (data as Record<string, unknown>).deploy_webhook_url;
-      if (typeof webhookUrl !== "string" || webhookUrl.trim() === "") {
+      const webhookUrls = parseWebhookUrls(
+        (data as Record<string, unknown>).deploy_webhook_url
+      );
+      if (webhookUrls.length === 0) {
         return success({
           save: { ok: true },
           deploy: { ok: false, reason: "MISSING_DEPLOY_WEBHOOK_URL" },
@@ -178,10 +188,24 @@ export async function PATCH(request: NextRequest) {
         });
       }
 
-      const deploy = await triggerDeploy(webhookUrl.trim());
+      const deployResults = await Promise.all(
+        webhookUrls.map(async (url, index) => {
+          const result = await triggerDeploy(url);
+          return { index, ...result };
+        })
+      );
+      const failed = deployResults.filter((r) => !r.ok);
+      const deploy = {
+        ok: failed.length === 0,
+        total: deployResults.length,
+        success: deployResults.length - failed.length,
+        failed: failed.length,
+        results: deployResults,
+      };
+
       if (!deploy.ok) {
         return error(
-          "Settings saved but deploy trigger failed",
+          "Settings saved but one or more deploy triggers failed",
           "DEPLOY_ERROR",
           {
             save: { ok: true },
