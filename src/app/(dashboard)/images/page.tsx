@@ -414,7 +414,7 @@ export default function ImagesPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {image.width} ¡Á {image.height}
+                    {image.width} x {image.height}
                   </p>
                   {image.deal && (
                     <p className="truncate text-xs text-muted-foreground">
