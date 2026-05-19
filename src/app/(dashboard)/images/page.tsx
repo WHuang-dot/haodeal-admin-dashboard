@@ -334,7 +334,7 @@ export default function ImagesPage() {
       )}
 
       {loading && !data ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
           {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square w-full" />
           ))}
@@ -351,7 +351,7 @@ export default function ImagesPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
             {data.data.map((image) => (
               <div
                 key={image.id}
@@ -384,7 +384,7 @@ export default function ImagesPage() {
                     />
                   )}
                 </div>
-                <div className="space-y-1 p-3">
+                <div className="space-y-1 p-2">
                   <div className="flex items-center justify-between">
                     <Badge variant={image.role === "source" ? "secondary" : "default"}>
                       {image.role}
@@ -429,6 +429,9 @@ export default function ImagesPage() {
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     Deal: {getDealDisplayTitle(image.deal)}
+                  </p>
+                  <p className="text-[10px] leading-snug text-muted-foreground break-all">
+                    URL: {image.url}
                   </p>
                 </div>
               </div>
