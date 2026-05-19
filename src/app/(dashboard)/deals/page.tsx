@@ -301,21 +301,106 @@ export default function DealsPage() {
           </div>
         </PageHeader>
 
-        <section className="market-panel rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md md:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search products, brands, or keywords..."
-                  className="h-11 rounded-2xl border-white/12 bg-black/25 pl-10 text-sm shadow-inner"
-                />
+        <div className="grid gap-5 xl:grid-cols-[290px_minmax(0,1fr)]">
+          <aside className="market-panel rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md xl:sticky xl:top-4 xl:h-fit">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/55 uppercase">
+                  Search
+                </p>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search keyword..."
+                    className="h-10 rounded-xl border-white/12 bg-black/25 pl-10 text-sm shadow-inner"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/55 uppercase">
+                  Scope
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={tab === "all" ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
+                    onClick={() => setTab("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={tab === "unresolved" ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
+                    onClick={() => setTab("unresolved")}
+                  >
+                    Unresolved
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/55 uppercase">
+                  Filters
+                </p>
+                <div className="space-y-2">
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+                    <SelectTrigger className="h-9 w-full rounded-xl border-white/12 bg-black/20 text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v ?? "all")}>
+                    <SelectTrigger className="h-9 w-full rounded-xl border-white/12 bg-black/20 text-xs">
+                      <SelectValue placeholder="Store" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stores</SelectItem>
+                      {stores.map((s) => (
+                        <SelectItem key={s.code} value={s.code}>
+                          {s.name_cn || s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
+                    <SelectTrigger className="h-9 w-full rounded-xl border-white/12 bg-black/20 text-xs">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div className="space-y-4">
+            <section className="market-panel rounded-2xl border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-white/55">Product stream</div>
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                  <SelectTrigger className="h-10 w-[170px] rounded-xl border-white/12 bg-black/25 text-xs tracking-wide uppercase">
+                  <SelectTrigger className="h-9 w-[170px] rounded-xl border-white/12 bg-black/25 text-xs tracking-wide uppercase">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
                   <SelectContent>
@@ -326,76 +411,10 @@ export default function DealsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            </section>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant={tab === "all" ? "secondary" : "outline"}
-                size="sm"
-                className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
-                onClick={() => setTab("all")}
-              >
-                All
-              </Button>
-              <Button
-                type="button"
-                variant={tab === "unresolved" ? "secondary" : "outline"}
-                size="sm"
-                className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
-                onClick={() => setTab("unresolved")}
-              >
-                Unresolved
-              </Button>
-
-              <div className="mx-1 hidden h-5 w-px bg-white/12 md:block" />
-
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-                <SelectTrigger className="h-8 w-36 rounded-full border-white/12 bg-black/20 text-xs">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v ?? "all")}>
-                <SelectTrigger className="h-8 w-40 rounded-full border-white/12 bg-black/20 text-xs">
-                  <SelectValue placeholder="Store" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  {stores.map((s) => (
-                    <SelectItem key={s.code} value={s.code}>
-                      {s.name_cn || s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
-                <SelectTrigger className="h-8 w-44 rounded-full border-white/12 bg-black/20 text-xs">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </section>
-
-        {isInitialLoading ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {isInitialLoading ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {Array.from({ length: limit }).map((_, idx) => (
               <DealCardSkeleton key={idx} />
             ))}
@@ -407,7 +426,7 @@ export default function DealsPage() {
             description="Try adjusting search or filters."
           />
         ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {displayDeals.map((deal) => {
               const storeLabel = getStoreLabel(deal);
               const categoryLabel = getCategoryLabel(deal);
@@ -582,6 +601,8 @@ export default function DealsPage() {
             ) : displayDeals.length > 0 ? (
               <div className="text-xs text-white/45">All deals loaded</div>
             ) : null}
+          </div>
+        </div>
           </div>
         </div>
       </div>
