@@ -140,12 +140,12 @@ function sortDeals(deals: Deal[], sortBy: SortOption) {
 function DealCardSkeleton() {
   return (
     <Card className="market-card overflow-hidden border border-white/10 bg-white/[0.02]">
-      <Skeleton className="aspect-[4/5] w-full rounded-none bg-white/[0.06]" />
-      <CardContent className="space-y-3 p-4">
-        <Skeleton className="h-5 w-5/6 bg-white/[0.08]" />
-        <Skeleton className="h-6 w-2/5 bg-white/[0.12]" />
-        <Skeleton className="h-4 w-full bg-white/[0.08]" />
-        <Skeleton className="h-4 w-4/5 bg-white/[0.08]" />
+      <Skeleton className="aspect-[1/1] w-full rounded-none bg-white/[0.06]" />
+      <CardContent className="space-y-2 p-3">
+        <Skeleton className="h-4 w-5/6 bg-white/[0.08]" />
+        <Skeleton className="h-5 w-2/5 bg-white/[0.12]" />
+        <Skeleton className="h-3 w-full bg-white/[0.08]" />
+        <Skeleton className="h-3 w-4/5 bg-white/[0.08]" />
       </CardContent>
     </Card>
   );
@@ -409,7 +409,7 @@ export default function DealsPage() {
                   className="market-card group overflow-hidden rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_20px_45px_rgba(30,136,229,0.18)]"
                 >
                   <div
-                    className="relative aspect-[4/5] cursor-zoom-in overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-700/50 to-slate-900/85"
+                    className="relative aspect-[1/1] cursor-zoom-in overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-700/50 to-slate-900/85"
                     onClick={() => {
                       const preview = deal.cover_image_url || deal.cover_thumbnail_url;
                       if (preview) {
@@ -480,20 +480,20 @@ export default function DealsPage() {
                     onClick={() => router.push(`/deals/${deal.id}`)}
                     className="block w-full text-left"
                   >
-                    <CardContent className="space-y-3 p-4">
-                      <div className="space-y-1">
+                    <CardContent className="space-y-2 p-3">
+                      <div className="space-y-0.5">
                         <h3
-                          className="line-clamp-2 text-[15px] leading-5 font-semibold tracking-tight text-foreground"
+                          className="line-clamp-2 text-[13px] leading-4.5 font-semibold tracking-tight text-foreground"
                           title={getDealDisplayTitle(deal)}
                         >
                           {getDealDisplayTitle(deal)}
                         </h3>
-                        <p className="text-lg leading-none font-bold text-white/95">
+                        <p className="text-base leading-none font-bold text-white/95">
                           {getPriceLabel(deal.price)}
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
                         <div className="truncate text-white/45">Platform</div>
                         <div className="truncate text-white/80">{deal.platform || "-"}</div>
                         <div className="truncate text-white/45">Brand</div>
@@ -504,7 +504,7 @@ export default function DealsPage() {
                         <div className="truncate text-white/80">{categoryLabel}</div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-0.5">
                         {deal.store_match_status === "unmatched" && (
                           <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[10px] text-white/70">
                             Store pending
@@ -517,7 +517,7 @@ export default function DealsPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between border-t border-white/10 pt-2 text-[11px] text-white/65">
+                      <div className="flex items-center justify-between border-t border-white/10 pt-1.5 text-[10px] text-white/65">
                         <span>Likes {(deal.likes ?? 0).toLocaleString()}</span>
                         <span>Clicks {(deal.clicks ?? 0).toLocaleString()}</span>
                       </div>
