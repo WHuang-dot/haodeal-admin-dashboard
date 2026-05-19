@@ -289,11 +289,11 @@ export default function DealsPage() {
       </div>
 
       {listLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {Array.from({ length: limit }).map((_, i) => (
             <Card key={i} className="overflow-hidden">
               <Skeleton className="aspect-[4/3] w-full" />
-              <CardContent className="space-y-3 p-4">
+              <CardContent className="space-y-2 p-3">
                 <Skeleton className="h-5 w-full" />
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
@@ -309,7 +309,7 @@ export default function DealsPage() {
           description="Try adjusting your filters or search."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {deals.map((deal) => (
             <Card
               key={deal.id}
@@ -342,15 +342,15 @@ export default function DealsPage() {
                 onClick={() => router.push(`/deals/${deal.id}`)}
                 className="block w-full text-left"
               >
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div
-                    className="line-clamp-2 min-h-10 text-sm font-semibold leading-5"
+                    className="line-clamp-2 min-h-8 text-xs font-semibold leading-4.5"
                     title={getDealDisplayTitle(deal)}
                   >
                     {getDealDisplayTitle(deal)}
                   </div>
 
-                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <div className="space-y-1 text-[11px] text-muted-foreground">
                     <p className="truncate">Platform: {deal.platform || "-"}</p>
                     <p className="truncate">Brand: {deal.brand || "-"}</p>
                     <p>Price: {getPriceLabel(deal.price)}</p>
@@ -358,7 +358,7 @@ export default function DealsPage() {
                     <p className="truncate">Category: {getCategoryLabel(deal)}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {deal.store_match_status === "unmatched" && (
                       <Badge
                         variant="outline"
@@ -379,7 +379,7 @@ export default function DealsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-[11px]">
                     <Badge variant="outline">{deal.status || "-"}</Badge>
                     <span className="text-muted-foreground">
                       Likes {deal.likes ?? 0} | Clicks {deal.clicks ?? 0}
@@ -388,7 +388,7 @@ export default function DealsPage() {
                 </CardContent>
               </button>
 
-              <div className="flex items-center justify-end gap-1 border-t px-3 py-2">
+              <div className="flex items-center justify-end gap-1 border-t px-2.5 py-1.5">
                 <button
                   type="button"
                   onClick={(e) => {
