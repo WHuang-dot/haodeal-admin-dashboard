@@ -64,16 +64,17 @@ export async function GET(request: NextRequest) {
 
       const clusterToDealMap = new Map<string, string>();
       if (clusterIdsNeedingFallback.length > 0) {
-        const { data: clusterRows, error: clusterError } = await supabaseAdmin
-          .from("deal_clusters")
-          .select("cluster_id, deal_id")
-          .in("cluster_id", clusterIdsNeedingFallback);
+        const { data: dealsByCluster, error: dealsByClusterError } = await supabaseAdmin
+          .from("deals")
+          .select("id, cluster_id, created_at")
+          .in("cluster_id", clusterIdsNeedingFallback)
+          .order("created_at", { ascending: false });
 
-        if (clusterError) throw clusterError;
+        if (dealsByClusterError) throw dealsByClusterError;
 
-        for (const row of clusterRows ?? []) {
+        for (const row of dealsByCluster ?? []) {
           const clusterId = (row as { cluster_id?: unknown }).cluster_id;
-          const dealIdFromCluster = (row as { deal_id?: unknown }).deal_id;
+          const dealIdFromCluster = (row as { id?: unknown }).id;
           if (
             typeof clusterId === "string" &&
             typeof dealIdFromCluster === "string" &&
