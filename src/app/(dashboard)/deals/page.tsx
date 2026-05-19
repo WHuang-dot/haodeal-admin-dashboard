@@ -336,8 +336,8 @@ export default function DealsPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {Array.from({ length: limit }).map((_, i) => (
             <Card key={i} className="overflow-hidden">
-              <Skeleton className="aspect-[4/3] w-full" />
-              <CardContent className="space-y-2 p-3">
+              <Skeleton className="aspect-[2/1] w-full" />
+              <CardContent className="space-y-1.5 p-2">
                 <Skeleton className="h-5 w-full" />
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
@@ -360,7 +360,7 @@ export default function DealsPage() {
               className="overflow-hidden transition-colors hover:border-primary/40"
             >
               <div
-                className="relative aspect-[16/10] cursor-zoom-in bg-muted"
+                className="relative aspect-[2/1] cursor-zoom-in bg-muted"
                 onClick={() => {
                   const preview = deal.cover_image_url || deal.cover_thumbnail_url;
                   if (preview) {
@@ -386,15 +386,15 @@ export default function DealsPage() {
                 onClick={() => router.push(`/deals/${deal.id}`)}
                 className="block w-full text-left"
               >
-                <CardContent className="space-y-1.5 p-2.5">
+                <CardContent className="space-y-1 p-2">
                   <div
-                    className="line-clamp-2 min-h-7 text-xs font-semibold leading-4"
+                    className="line-clamp-2 min-h-6 text-[11px] font-semibold leading-3.5"
                     title={getDealDisplayTitle(deal)}
                   >
                     {getDealDisplayTitle(deal)}
                   </div>
 
-                  <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                  <div className="space-y-0 text-[9px] leading-3.5 text-muted-foreground">
                     <p className="truncate">Platform: {deal.platform || "-"}</p>
                     <p className="truncate">Brand: {deal.brand || "-"}</p>
                     <p>Price: {getPriceLabel(deal.price)}</p>
@@ -402,7 +402,7 @@ export default function DealsPage() {
                     <p className="truncate">Category: {getCategoryLabel(deal)}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-0.5">
                     {deal.store_match_status === "unmatched" && (
                       <Badge
                         variant="outline"
@@ -423,7 +423,7 @@ export default function DealsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px]">
+                  <div className="flex items-center justify-between text-[9px]">
                     <Badge variant="outline">{deal.status || "-"}</Badge>
                     <span className="text-muted-foreground">
                       Likes {deal.likes ?? 0} | Clicks {deal.clicks ?? 0}
@@ -432,7 +432,7 @@ export default function DealsPage() {
                 </CardContent>
               </button>
 
-              <div className="flex items-center justify-end gap-1 border-t px-2.5 py-1.5">
+              <div className="flex items-center justify-end gap-1 border-t px-2 py-1">
                 <button
                   type="button"
                   onClick={(e) => {
