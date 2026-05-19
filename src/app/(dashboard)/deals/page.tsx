@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
@@ -11,7 +11,6 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,9 +27,9 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronLeft,
-  ChevronRight,
   ExternalLink,
   ImageIcon,
+  Loader2,
   Search,
   ShoppingBag,
   Trash2,
@@ -116,8 +115,15 @@ export default function DealsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
+  const [loadedDeals, setLoadedDeals] = useState<Deal[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const limit = 20;
+
+  const listQueryKey = useMemo(
+    () => JSON.stringify({ tab, statusFilter, storeFilter, categoryFilter, search, refreshKey }),
+    [tab, statusFilter, storeFilter, categoryFilter, search, refreshKey]
+  );
 
   const listUrl = useMemo(() => {
     const params = new URLSearchParams();
@@ -153,13 +159,51 @@ export default function DealsPage() {
     "/api/admin/categories"
   );
 
-  const deals = listData?.data ?? [];
+  const pageDeals = useMemo(() => listData?.data ?? [], [listData]);
   const total = listData?.total ?? 0;
   const stores = storesResponse?.data ?? [];
   const categories = categoriesResponse?.data ?? [];
+  const hasMore = loadedDeals.length < total;
+  const isInitialLoading = listLoading && offset === 0 && loadedDeals.length === 0;
+  const isLoadingMore = listLoading && offset > 0;
 
-  const handlePrev = () => setOffset((o) => Math.max(0, o - limit));
-  const handleNext = () => setOffset((o) => (o + limit < total ? o + limit : o));
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOffset(0);
+    setLoadedDeals([]);
+  }, [listQueryKey]);
+
+  useEffect(() => {
+    if (!listData) return;
+    if (offset === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoadedDeals(pageDeals);
+      return;
+    }
+    setLoadedDeals((prev) => {
+      const map = new Map(prev.map((item) => [item.id, item]));
+      for (const row of pageDeals) map.set(row.id, row);
+      return Array.from(map.values());
+    });
+  }, [listData, offset, pageDeals]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        if (listLoading || !hasMore) return;
+        setOffset((o) => o + limit);
+      },
+      { rootMargin: "400px 0px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, limit, listLoading]);
 
   const handleTabChange = (value: string) => {
     setTab(value);
@@ -288,7 +332,7 @@ export default function DealsPage() {
         </div>
       </div>
 
-      {listLoading ? (
+      {isInitialLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {Array.from({ length: limit }).map((_, i) => (
             <Card key={i} className="overflow-hidden">
@@ -302,7 +346,7 @@ export default function DealsPage() {
             </Card>
           ))}
         </div>
-      ) : deals.length === 0 ? (
+      ) : loadedDeals.length === 0 ? (
         <EmptyState
           icon={ShoppingBag}
           title="No deals found"
@@ -310,13 +354,13 @@ export default function DealsPage() {
         />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {deals.map((deal) => (
+          {loadedDeals.map((deal) => (
             <Card
               key={deal.id}
               className="overflow-hidden transition-colors hover:border-primary/40"
             >
               <div
-                className="relative aspect-[4/3] cursor-zoom-in bg-muted"
+                className="relative aspect-[16/10] cursor-zoom-in bg-muted"
                 onClick={() => {
                   const preview = deal.cover_image_url || deal.cover_thumbnail_url;
                   if (preview) {
@@ -342,15 +386,15 @@ export default function DealsPage() {
                 onClick={() => router.push(`/deals/${deal.id}`)}
                 className="block w-full text-left"
               >
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="space-y-1.5 p-2.5">
                   <div
-                    className="line-clamp-2 min-h-8 text-xs font-semibold leading-4.5"
+                    className="line-clamp-2 min-h-7 text-xs font-semibold leading-4"
                     title={getDealDisplayTitle(deal)}
                   >
                     {getDealDisplayTitle(deal)}
                   </div>
 
-                  <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <div className="space-y-0.5 text-[10px] text-muted-foreground">
                     <p className="truncate">Platform: {deal.platform || "-"}</p>
                     <p className="truncate">Brand: {deal.brand || "-"}</p>
                     <p>Price: {getPriceLabel(deal.price)}</p>
@@ -358,7 +402,7 @@ export default function DealsPage() {
                     <p className="truncate">Category: {getCategoryLabel(deal)}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {deal.store_match_status === "unmatched" && (
                       <Badge
                         variant="outline"
@@ -379,7 +423,7 @@ export default function DealsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-[10px]">
                     <Badge variant="outline">{deal.status || "-"}</Badge>
                     <span className="text-muted-foreground">
                       Likes {deal.likes ?? 0} | Clicks {deal.clicks ?? 0}
@@ -414,22 +458,24 @@ export default function DealsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="space-y-2">
         <div className="text-sm text-muted-foreground">
-          Showing {total === 0 ? 0 : offset + 1}-{Math.min(offset + limit, total)} of {total}
+          Showing {loadedDeals.length} of {total}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrev} disabled={offset === 0}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNext}
-            disabled={offset + limit >= total}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+        <div ref={loadMoreRef} className="flex min-h-10 items-center justify-center">
+          {isLoadingMore ? (
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading more deals...
+            </div>
+          ) : hasMore ? (
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <ChevronLeft className="h-3.5 w-3.5 rotate-[-90deg]" />
+              Scroll down to load more
+            </div>
+          ) : loadedDeals.length > 0 ? (
+            <div className="text-xs text-muted-foreground">All deals loaded</div>
+          ) : null}
         </div>
       </div>
 
