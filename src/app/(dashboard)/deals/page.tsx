@@ -534,20 +534,20 @@ export default function DealsPage() {
                     onClick={() => router.push(`/deals/${deal.id}`)}
                     className="block w-full text-left"
                   >
-                    <CardContent className="space-y-2 p-3">
+                    <CardContent className="space-y-2.5 p-3.5">
                       <div className="space-y-0.5">
                         <h3
-                          className="line-clamp-2 text-[13px] leading-4.5 font-semibold tracking-tight text-foreground"
+                          className="line-clamp-2 text-[15px] leading-5 font-semibold tracking-tight text-foreground"
                           title={getDealDisplayTitle(deal)}
                         >
                           {getDealDisplayTitle(deal)}
                         </h3>
-                        <p className="text-base leading-none font-bold text-white/95">
+                        <p className="text-lg leading-none font-bold text-white/95">
                           {getPriceLabel(deal.price)}
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[12px]">
                         <div className="truncate text-white/45">Platform</div>
                         <div className="truncate text-white/80">{deal.platform || "-"}</div>
                         <div className="truncate text-white/45">Brand</div>
@@ -560,18 +560,18 @@ export default function DealsPage() {
 
                       <div className="flex flex-wrap gap-0.5">
                         {deal.store_match_status === "unmatched" && (
-                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[10px] text-white/70">
+                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[11px] text-white/70">
                             Store pending
                           </span>
                         )}
                         {deal.category_match_status === "unmatched" && (
-                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[10px] text-white/70">
+                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[11px] text-white/70">
                             Category pending
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between border-t border-white/10 pt-1.5 text-[10px] text-white/65">
+                      <div className="flex items-center justify-between border-t border-white/10 pt-2 text-[12px] text-white/70">
                         <span>Likes {(deal.likes ?? 0).toLocaleString()}</span>
                         <span>Clicks {(deal.clicks ?? 0).toLocaleString()}</span>
                       </div>
