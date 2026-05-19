@@ -454,7 +454,7 @@ export default function DealsPage() {
           }
         }}
       >
-        <DialogContent className="h-screen w-screen max-w-none rounded-none border-0 p-4 sm:p-6">
+        <DialogContent className="inset-0 top-0 left-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Deal Image Preview</DialogTitle>
           </DialogHeader>
@@ -471,7 +471,7 @@ export default function DealsPage() {
                 className={
                   previewFullscreen
                     ? "h-full w-full object-contain"
-                    : "h-auto w-auto max-h-none max-w-none object-none"
+                    : "h-auto w-auto max-h-none max-w-none object-contain"
                 }
               />
             </button>
