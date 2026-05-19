@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
@@ -12,16 +12,9 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -31,13 +24,14 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ShoppingBag,
-  Search,
+  AlertCircle,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  AlertCircle,
   ExternalLink,
-  AlertTriangle,
+  ImageIcon,
+  Search,
+  ShoppingBag,
   Trash2,
 } from "lucide-react";
 
@@ -56,6 +50,8 @@ interface Deal {
   created_at: string;
   likes?: number;
   clicks?: number;
+  cover_image_url?: string | null;
+  cover_thumbnail_url?: string | null;
   stores?: { name: string; name_cn: string } | null;
   categories?: { category: string; subcategory: string } | null;
 }
@@ -89,17 +85,22 @@ const STATUS_OPTIONS = [
 
 function getStoreLabel(deal: Deal) {
   if (deal.stores) {
-    return deal.stores.name_cn || deal.stores.name || deal.store_code || "—";
+    return deal.stores.name_cn || deal.stores.name || deal.store_code || "-";
   }
-  return deal.store_code || "—";
+  return deal.store_code || "-";
 }
 
 function getCategoryLabel(deal: Deal) {
   if (deal.categories) {
     const parts = [deal.categories.category, deal.categories.subcategory].filter(Boolean);
-    return parts.join(" / ") || deal.category_code || "—";
+    return parts.join(" / ") || deal.category_code || "-";
   }
-  return deal.category_code || "—";
+  return deal.category_code || "-";
+}
+
+function getPriceLabel(price: string | number | null) {
+  if (price === null || price === undefined || price === "") return "-";
+  return String(price);
 }
 
 export default function DealsPage() {
@@ -151,13 +152,11 @@ export default function DealsPage() {
 
   const deals = listData?.data ?? [];
   const total = listData?.total ?? 0;
-
   const stores = storesResponse?.data ?? [];
   const categories = categoriesResponse?.data ?? [];
 
   const handlePrev = () => setOffset((o) => Math.max(0, o - limit));
-  const handleNext = () =>
-    setOffset((o) => (o + limit < total ? o + limit : o));
+  const handleNext = () => setOffset((o) => (o + limit < total ? o + limit : o));
 
   const handleTabChange = (value: string) => {
     setTab(value);
@@ -193,11 +192,7 @@ export default function DealsPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Deals" description="Manage extracted deals" />
-        <EmptyState
-          icon={AlertCircle}
-          title="Failed to load deals"
-          description={listError}
-        />
+        <EmptyState icon={AlertCircle} title="Failed to load deals" description={listError} />
       </div>
     );
   }
@@ -216,7 +211,7 @@ export default function DealsPage() {
       </Tabs>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex flex-1 items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search title or brand..."
@@ -282,9 +277,7 @@ export default function DealsPage() {
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
-                  {c.subcategory
-                    ? `${c.category} / ${c.subcategory}`
-                    : c.category}
+                  {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -292,162 +285,129 @@ export default function DealsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Platform</TableHead>
-              <TableHead>Brand</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Store</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Likes</TableHead>
-              <TableHead>Clicks</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-5 w-40" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-20" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-10" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-10" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-20 ml-auto" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : deals.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-32 text-center">
-                  <EmptyState
-                    icon={ShoppingBag}
-                    title="No deals found"
-                    description="Try adjusting your filters or search."
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              deals.map((deal) => (
-                <TableRow
-                  key={deal.id}
-                  className="cursor-pointer hover:bg-accent/40"
-                  onClick={() => router.push(`/deals/${deal.id}`)}
+      {listLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {Array.from({ length: limit }).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="aspect-[4/3] w-full" />
+              <CardContent className="space-y-3 p-4">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-2/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : deals.length === 0 ? (
+        <EmptyState
+          icon={ShoppingBag}
+          title="No deals found"
+          description="Try adjusting your filters or search."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {deals.map((deal) => (
+            <Card
+              key={deal.id}
+              className="overflow-hidden transition-colors hover:border-primary/40"
+            >
+              <button
+                type="button"
+                onClick={() => router.push(`/deals/${deal.id}`)}
+                className="block w-full text-left"
+              >
+                <div className="relative aspect-[4/3] bg-muted">
+                  {deal.cover_thumbnail_url || deal.cover_image_url ? (
+                    <img
+                      src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
+                      alt={getDealDisplayTitle(deal)}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
+                    </div>
+                  )}
+                </div>
+                <CardContent className="space-y-3 p-4">
+                  <div
+                    className="line-clamp-2 min-h-10 text-sm font-semibold leading-5"
+                    title={getDealDisplayTitle(deal)}
+                  >
+                    {getDealDisplayTitle(deal)}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <p className="truncate">Platform: {deal.platform || "-"}</p>
+                    <p className="truncate">Brand: {deal.brand || "-"}</p>
+                    <p>Price: {getPriceLabel(deal.price)}</p>
+                    <p className="truncate">Store: {getStoreLabel(deal)}</p>
+                    <p className="truncate">Category: {getCategoryLabel(deal)}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {deal.store_match_status === "unmatched" && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
+                      >
+                        <AlertTriangle className="mr-1 h-3 w-3" />
+                        Store Unmatched
+                      </Badge>
+                    )}
+                    {deal.category_match_status === "unmatched" && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
+                      >
+                        <AlertTriangle className="mr-1 h-3 w-3" />
+                        Category Unmatched
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <Badge variant="outline">{deal.status || "-"}</Badge>
+                    <span className="text-muted-foreground">
+                      Likes {deal.likes ?? 0} | Clicks {deal.clicks ?? 0}
+                    </span>
+                  </div>
+                </CardContent>
+              </button>
+
+              <div className="flex items-center justify-end gap-1 border-t px-3 py-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteDeal(deal);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
                 >
-                  <TableCell className="max-w-xs">
-                    <div
-                      className="truncate font-medium"
-                      title={getDealDisplayTitle(deal)}
-                    >
-                      {getDealDisplayTitle(deal)}
-                    </div>
-                  </TableCell>
-                  <TableCell>{deal.platform}</TableCell>
-                  <TableCell>{deal.brand || "—"}</TableCell>
-                  <TableCell>
-                    {deal.price != null ? deal.price : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{getStoreLabel(deal)}</span>
-                      {deal.store_match_status === "unmatched" && (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Unmatched
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{getCategoryLabel(deal)}</span>
-                      {deal.category_match_status === "unmatched" && (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Unmatched
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{deal.likes ?? 0}</TableCell>
-                  <TableCell>{deal.clicks ?? 0}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{deal.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteDeal(deal);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </button>
-                      <Link
-                        href={`/deals/${deal.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        View
-                      </Link>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+                <Link
+                  href={`/deals/${deal.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing {offset + 1}-{Math.min(offset + limit, total)} of {total}
+          Showing {total === 0 ? 0 : offset + 1}-{Math.min(offset + limit, total)} of {total}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrev}
-            disabled={offset === 0}
-          >
+          <Button variant="outline" size="sm" onClick={handlePrev} disabled={offset === 0}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
