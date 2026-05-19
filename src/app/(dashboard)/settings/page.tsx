@@ -34,6 +34,13 @@ interface RuntimeSettings {
   deploy_webhook_url?: string | null;
 }
 
+interface SaveLogEntry {
+  time: string;
+  level: "info" | "success" | "error";
+  message: string;
+  data?: unknown;
+}
+
 function toNullableNumber(value: string): number | null {
   if (value.trim() === "") return null;
   const n = Number(value);
@@ -65,6 +72,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookUrl, setShowWebhookUrl] = useState(true);
+  const [logs, setLogs] = useState<SaveLogEntry[]>([]);
 
   const form = useMemo(
     () => draft ?? data ?? { singleton: true },
@@ -80,6 +88,11 @@ export default function SettingsPage() {
     setDraft((prev) => ({ ...(prev ?? form), [key]: value }));
   };
 
+  const appendLog = (level: SaveLogEntry["level"], message: string, data?: unknown) => {
+    const time = new Date().toLocaleTimeString();
+    setLogs((prev) => [{ time, level, message, data }, ...prev].slice(0, 200));
+  };
+
   const saveSettings = async () => {
     setSaving(true);
     try {
@@ -93,23 +106,33 @@ export default function SettingsPage() {
         image_transform_poll_timeout_ms: toNullableNumber(String(form.image_transform_poll_timeout_ms ?? "")),
         image_transform_max_attempts: toNullableNumber(String(form.image_transform_max_attempts ?? "")),
       };
+      appendLog("info", "save.start", payload);
 
       const res = await fetch("/api/admin/settings/runtime", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      appendLog("info", "save.http_response", {
+        status: res.status,
+        statusText: res.statusText,
+      });
       const json = await res.json();
+      appendLog("info", "save.response_json", json);
 
       if (json.ok) {
         setDraft(null);
+        appendLog("success", "save.success", json.data);
         toast.success("Settings saved");
         if (json.data?.deploy?.ok) {
+          appendLog("success", "deploy.success", json.data.deploy);
           toast.success(`Deploy triggered (${json.data.deploy.success}/${json.data.deploy.total})`);
         } else {
+          appendLog("error", "deploy.not_triggered", json.data?.deploy);
           toast.warning("Settings saved, but deploy not triggered");
         }
       } else {
+        appendLog("error", "save.failed", json);
         if (json.code === "DEPLOY_ERROR" && json.details?.save?.ok) {
           const deploy = json.details?.deploy;
           if (deploy?.total) {
@@ -121,7 +144,10 @@ export default function SettingsPage() {
           toast.error(json.error || "Failed to save settings");
         }
       }
-    } catch {
+    } catch (err) {
+      appendLog("error", "save.catch_error", {
+        message: err instanceof Error ? err.message : String(err),
+      });
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
@@ -262,6 +288,37 @@ export default function SettingsPage() {
                 {showWebhookUrl ? "Hide" : "Show"}
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Settings Save Logs (Admin)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-3 flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setLogs([])}>
+              Clear Logs
+            </Button>
+          </div>
+          <div className="max-h-96 overflow-auto rounded-md border border-border">
+            {logs.length === 0 ? (
+              <div className="p-3 text-sm text-muted-foreground">No logs yet.</div>
+            ) : (
+              logs.map((log, idx) => (
+                <div key={`${log.time}-${idx}`} className="border-b border-border p-3 text-xs">
+                  <div className="mb-1 font-mono">
+                    [{log.time}] [{log.level}] {log.message}
+                  </div>
+                  {log.data !== undefined && (
+                    <pre className="whitespace-pre-wrap break-all rounded bg-muted/20 p-2 font-mono">
+                      {JSON.stringify(log.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

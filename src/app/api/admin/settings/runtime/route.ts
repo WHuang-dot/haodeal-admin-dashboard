@@ -119,6 +119,20 @@ function parseWebhookUrls(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function extractErrorDetails(err: unknown) {
+  if (typeof err !== "object" || err === null) {
+    return { message: String(err) };
+  }
+  const e = err as Record<string, unknown>;
+  return {
+    message: typeof e.message === "string" ? e.message : "Unknown error",
+    code: typeof e.code === "string" ? e.code : null,
+    details: typeof e.details === "string" ? e.details : null,
+    hint: typeof e.hint === "string" ? e.hint : null,
+    name: typeof e.name === "string" ? e.name : null,
+  };
+}
+
 export async function GET() {
   return withRole("admin", async () => {
     try {
@@ -149,8 +163,9 @@ export async function GET() {
 
       return success(data);
     } catch (err) {
-      console.error("Runtime settings get error:", err);
-      return error("Failed to fetch runtime settings", "DB_ERROR");
+      const detail = extractErrorDetails(err);
+      console.error("Runtime settings get error:", detail);
+      return error("Failed to fetch runtime settings", "DB_ERROR", detail);
     }
   });
 }
@@ -226,8 +241,9 @@ export async function PATCH(request: NextRequest) {
       if (msg.startsWith("INVALID_")) {
         return badRequest(msg);
       }
-      console.error("Runtime settings save error:", msg);
-      return error("Failed to save runtime settings", "DB_ERROR");
+      const detail = extractErrorDetails(err);
+      console.error("Runtime settings save error:", detail);
+      return error("Failed to save runtime settings", "DB_ERROR", detail);
     }
   });
 }
