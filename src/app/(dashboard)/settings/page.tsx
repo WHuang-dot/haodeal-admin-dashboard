@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 interface RuntimeSettings {
@@ -191,20 +192,56 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>URL Screenshot</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 md:gap-4 md:p-5">
-          <Label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={!!form.url_screenshot_enabled}
-              onChange={(e) => setField("url_screenshot_enabled", e.target.checked)}
-            />
-            Enabled
-          </Label>
-          <Input value={form.url_screenshot_timeout_ms ?? ""} onChange={(e) => setField("url_screenshot_timeout_ms", toNullableNumber(e.target.value))} placeholder="timeout ms" />
-          <Input value={form.url_screenshot_viewport_width ?? ""} onChange={(e) => setField("url_screenshot_viewport_width", toNullableNumber(e.target.value))} placeholder="viewport width" />
-          <Input value={form.url_screenshot_viewport_height ?? ""} onChange={(e) => setField("url_screenshot_viewport_height", toNullableNumber(e.target.value))} placeholder="viewport height" />
-          <Input value={form.url_screenshot_concurrency ?? ""} onChange={(e) => setField("url_screenshot_concurrency", toNullableNumber(e.target.value))} placeholder="concurrency" />
-          <Input value={form.url_screenshot_browser_path ?? ""} onChange={(e) => setField("url_screenshot_browser_path", e.target.value)} placeholder="browser path" />
+        <CardContent className="space-y-0 p-4 md:p-5">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Enable URL Screenshot</p>
+              <p className="text-xs text-muted-foreground">Turn on/off screenshot capture pipeline.</p>
+            </div>
+            <Label className="flex h-10 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!form.url_screenshot_enabled}
+                onChange={(e) => setField("url_screenshot_enabled", e.target.checked)}
+              />
+              Enabled
+            </Label>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Screenshot Timeout (ms)</p>
+              <p className="text-xs text-muted-foreground">Max wait time before timeout.</p>
+            </div>
+            <Input value={form.url_screenshot_timeout_ms ?? ""} onChange={(e) => setField("url_screenshot_timeout_ms", toNullableNumber(e.target.value))} placeholder="timeout ms" />
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Viewport Size</p>
+              <p className="text-xs text-muted-foreground">Browser screenshot resolution.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input value={form.url_screenshot_viewport_width ?? ""} onChange={(e) => setField("url_screenshot_viewport_width", toNullableNumber(e.target.value))} placeholder="width" />
+              <Input value={form.url_screenshot_viewport_height ?? ""} onChange={(e) => setField("url_screenshot_viewport_height", toNullableNumber(e.target.value))} placeholder="height" />
+            </div>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Screenshot Concurrency</p>
+              <p className="text-xs text-muted-foreground">How many pages can run in parallel.</p>
+            </div>
+            <Input value={form.url_screenshot_concurrency ?? ""} onChange={(e) => setField("url_screenshot_concurrency", toNullableNumber(e.target.value))} placeholder="concurrency" />
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Browser Path</p>
+              <p className="text-xs text-muted-foreground">Optional custom browser binary path.</p>
+            </div>
+            <Input value={form.url_screenshot_browser_path ?? ""} onChange={(e) => setField("url_screenshot_browser_path", e.target.value)} placeholder="browser path" />
+          </div>
         </CardContent>
       </Card>
 
@@ -212,18 +249,28 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Image Transform</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 md:gap-4 md:p-5">
-          <Label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={!!form.image_transform_enabled}
-              onChange={(e) => setField("image_transform_enabled", e.target.checked)}
-            />
-            Enabled
-          </Label>
-          <div className="sm:col-span-2">
-            <Label>API Key</Label>
-            <div className="mt-1 flex gap-2">
+        <CardContent className="space-y-0 p-4 md:p-5">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Enable Image Transform</p>
+              <p className="text-xs text-muted-foreground">Turn on/off image transform service.</p>
+            </div>
+            <Label className="flex h-10 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!form.image_transform_enabled}
+                onChange={(e) => setField("image_transform_enabled", e.target.checked)}
+              />
+              Enabled
+            </Label>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">API Key</p>
+              <p className="text-xs text-muted-foreground">Apimart auth key.</p>
+            </div>
+            <div className="flex gap-2">
               <Input
                 type={showApiKey ? "text" : "password"}
                 value={form.image_transform_apimart_api_key ?? ""}
@@ -234,18 +281,40 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
-          <Input value={form.image_transform_submit_url ?? ""} onChange={(e) => setField("image_transform_submit_url", e.target.value)} placeholder="submit url" />
-          <Input value={form.image_transform_task_url_base ?? ""} onChange={(e) => setField("image_transform_task_url_base", e.target.value)} placeholder="task url base" />
-          <Input value={form.image_transform_model ?? ""} onChange={(e) => setField("image_transform_model", e.target.value)} placeholder="model" />
-          <Input value={form.image_transform_poll_interval_ms ?? ""} onChange={(e) => setField("image_transform_poll_interval_ms", toNullableNumber(e.target.value))} placeholder="poll interval ms" />
-          <Input value={form.image_transform_poll_timeout_ms ?? ""} onChange={(e) => setField("image_transform_poll_timeout_ms", toNullableNumber(e.target.value))} placeholder="poll timeout ms" />
-          <Input value={form.image_transform_max_attempts ?? ""} onChange={(e) => setField("image_transform_max_attempts", toNullableNumber(e.target.value))} placeholder="max attempts" />
-          <div className="sm:col-span-2">
-            <Label>Prompt</Label>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Submit / Task URL</p>
+              <p className="text-xs text-muted-foreground">Image generation submit and task polling endpoints.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input value={form.image_transform_submit_url ?? ""} onChange={(e) => setField("image_transform_submit_url", e.target.value)} placeholder="submit url" />
+              <Input value={form.image_transform_task_url_base ?? ""} onChange={(e) => setField("image_transform_task_url_base", e.target.value)} placeholder="task url base" />
+            </div>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Model + Polling</p>
+              <p className="text-xs text-muted-foreground">Model name and poll behavior.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input value={form.image_transform_model ?? ""} onChange={(e) => setField("image_transform_model", e.target.value)} placeholder="model" />
+              <Input value={form.image_transform_poll_interval_ms ?? ""} onChange={(e) => setField("image_transform_poll_interval_ms", toNullableNumber(e.target.value))} placeholder="poll interval ms" />
+              <Input value={form.image_transform_poll_timeout_ms ?? ""} onChange={(e) => setField("image_transform_poll_timeout_ms", toNullableNumber(e.target.value))} placeholder="poll timeout ms" />
+              <Input value={form.image_transform_max_attempts ?? ""} onChange={(e) => setField("image_transform_max_attempts", toNullableNumber(e.target.value))} placeholder="max attempts" />
+            </div>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Prompt</p>
+              <p className="text-xs text-muted-foreground">Global transform prompt template.</p>
+            </div>
             <Textarea
               value={form.image_transform_prompt ?? ""}
               onChange={(e) => setField("image_transform_prompt", e.target.value)}
-              rows={5}
+              rows={4}
             />
           </div>
         </CardContent>
@@ -255,17 +324,27 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Moderation</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 p-4 md:space-y-4 md:p-5">
-          <Label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={!!form.enable_comment}
-              onChange={(e) => setField("enable_comment", e.target.checked)}
-            />
-            Enable Comment
-          </Label>
-          <div>
-            <Label>Block Keywords (one per line)</Label>
+        <CardContent className="space-y-0 p-4 md:p-5">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Enable Comment</p>
+              <p className="text-xs text-muted-foreground">Toggle comment generation behavior.</p>
+            </div>
+            <Label className="flex h-10 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!form.enable_comment}
+                onChange={(e) => setField("enable_comment", e.target.checked)}
+              />
+              Enabled
+            </Label>
+          </div>
+          <Separator className="my-3" />
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+            <div>
+              <p className="text-sm font-medium">Block Keywords</p>
+              <p className="text-xs text-muted-foreground">One keyword per line. Press Enter to add next line.</p>
+            </div>
             <Textarea
               ref={blockKeywordsRef}
               value={blockKeywordsToText(form.block_keywords)}
