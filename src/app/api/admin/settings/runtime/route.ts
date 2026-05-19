@@ -172,6 +172,7 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   return withRole("admin", async () => {
+    let savedSettings: unknown = null;
     try {
       const raw = (await request.json()) as Record<string, unknown>;
       const payload = normalizePayload(raw);
@@ -191,6 +192,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (dbError) throw dbError;
+      savedSettings = data;
 
       const webhookUrls = parseWebhookUrls(
         (data as Record<string, unknown>).deploy_webhook_url
@@ -203,39 +205,60 @@ export async function PATCH(request: NextRequest) {
         });
       }
 
-      const deployResults = await Promise.all(
-        webhookUrls.map(async (url, index) => {
-          const result = await triggerDeploy(url);
-          return { index, ...result };
-        })
-      );
-      const failed = deployResults.filter((r) => !r.ok);
-      const deploy = {
-        ok: failed.length === 0,
-        total: deployResults.length,
-        success: deployResults.length - failed.length,
-        failed: failed.length,
-        results: deployResults,
-      };
+      try {
+        const deployResults = await Promise.all(
+          webhookUrls.map(async (url, index) => {
+            const result = await triggerDeploy(url);
+            return { index, ...result };
+          })
+        );
+        const failed = deployResults.filter((r) => !r.ok);
+        const deploy = {
+          ok: failed.length === 0,
+          total: deployResults.length,
+          success: deployResults.length - failed.length,
+          failed: failed.length,
+          results: deployResults,
+        };
 
-      if (!deploy.ok) {
+        if (!deploy.ok) {
+          return error(
+            "Settings saved but one or more deploy triggers failed",
+            "DEPLOY_ERROR",
+            {
+              save: { ok: true },
+              deploy,
+              settings: data,
+            },
+            502
+          );
+        }
+
+        return success({
+          save: { ok: true },
+          deploy,
+          settings: data,
+        });
+      } catch (deployErr) {
+        const deployDetail = extractErrorDetails(deployErr);
         return error(
-          "Settings saved but one or more deploy triggers failed",
+          "Settings saved but deploy trigger request failed",
           "DEPLOY_ERROR",
           {
             save: { ok: true },
-            deploy,
+            deploy: {
+              ok: false,
+              total: webhookUrls.length,
+              success: 0,
+              failed: webhookUrls.length,
+              results: [],
+              request_error: deployDetail,
+            },
             settings: data,
           },
           502
         );
       }
-
-      return success({
-        save: { ok: true },
-        deploy,
-        settings: data,
-      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save runtime settings";
       if (msg.startsWith("INVALID_")) {
@@ -243,6 +266,25 @@ export async function PATCH(request: NextRequest) {
       }
       const detail = extractErrorDetails(err);
       console.error("Runtime settings save error:", detail);
+      if (savedSettings) {
+        return error(
+          "Settings saved but deploy failed",
+          "DEPLOY_ERROR",
+          {
+            save: { ok: true },
+            deploy: {
+              ok: false,
+              total: 0,
+              success: 0,
+              failed: 0,
+              results: [],
+              request_error: detail,
+            },
+            settings: savedSettings,
+          },
+          502
+        );
+      }
       return error("Failed to save runtime settings", "DB_ERROR", detail);
     }
   });
