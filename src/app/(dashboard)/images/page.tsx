@@ -466,7 +466,7 @@ export default function ImagesPage() {
         open={!!previewUrl}
         onOpenChange={(open) => !open && setPreviewUrl(null)}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="h-screen w-screen max-w-none rounded-none border-0 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Image Preview</DialogTitle>
           </DialogHeader>
@@ -474,7 +474,7 @@ export default function ImagesPage() {
             <img
               src={previewUrl}
               alt="Preview"
-              className="w-full rounded-lg object-contain"
+              className="h-[calc(100vh-6rem)] w-full rounded-lg object-contain"
             />
           )}
         </DialogContent>
