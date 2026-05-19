@@ -6,12 +6,12 @@ import { useConfirmDialog } from "@/hooks/use-confirm";
 import { PageHeader } from "@/components/page-header";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 interface RuntimeSettings {
@@ -183,7 +183,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-20 md:space-y-5 md:pb-24">
+    <div className="mx-auto w-full max-w-[1100px] space-y-6 pb-20 md:space-y-8 md:pb-24">
       <PageHeader title="Settings" description="Runtime settings controls">
         <Badge variant="outline">{boolText(form.enable_comment)}</Badge>
       </PageHeader>
@@ -193,22 +193,21 @@ export default function SettingsPage() {
           <CardTitle>URL Screenshot</CardTitle>
         </CardHeader>
         <CardContent className="space-y-0 p-4 md:p-5">
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Enable URL Screenshot</p>
               <p className="text-xs text-muted-foreground">Turn on/off screenshot capture pipeline.</p>
             </div>
-            <Label className="flex h-10 items-center gap-2">
-              <input
-                type="checkbox"
+            <div className="flex h-10 items-center justify-start">
+              <Switch
                 checked={!!form.url_screenshot_enabled}
-                onChange={(e) => setField("url_screenshot_enabled", e.target.checked)}
+                onCheckedChange={(checked) => setField("url_screenshot_enabled", checked)}
+                ariaLabel="Enable URL Screenshot"
               />
-              Enabled
-            </Label>
+            </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Screenshot Timeout (ms)</p>
               <p className="text-xs text-muted-foreground">Max wait time before timeout.</p>
@@ -216,7 +215,7 @@ export default function SettingsPage() {
             <Input value={form.url_screenshot_timeout_ms ?? ""} onChange={(e) => setField("url_screenshot_timeout_ms", toNullableNumber(e.target.value))} placeholder="timeout ms" />
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Viewport Size</p>
               <p className="text-xs text-muted-foreground">Browser screenshot resolution.</p>
@@ -227,7 +226,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Screenshot Concurrency</p>
               <p className="text-xs text-muted-foreground">How many pages can run in parallel.</p>
@@ -235,7 +234,7 @@ export default function SettingsPage() {
             <Input value={form.url_screenshot_concurrency ?? ""} onChange={(e) => setField("url_screenshot_concurrency", toNullableNumber(e.target.value))} placeholder="concurrency" />
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Browser Path</p>
               <p className="text-xs text-muted-foreground">Optional custom browser binary path.</p>
@@ -250,22 +249,21 @@ export default function SettingsPage() {
           <CardTitle>Image Transform</CardTitle>
         </CardHeader>
         <CardContent className="space-y-0 p-4 md:p-5">
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Enable Image Transform</p>
               <p className="text-xs text-muted-foreground">Turn on/off image transform service.</p>
             </div>
-            <Label className="flex h-10 items-center gap-2">
-              <input
-                type="checkbox"
+            <div className="flex h-10 items-center justify-start">
+              <Switch
                 checked={!!form.image_transform_enabled}
-                onChange={(e) => setField("image_transform_enabled", e.target.checked)}
+                onCheckedChange={(checked) => setField("image_transform_enabled", checked)}
+                ariaLabel="Enable Image Transform"
               />
-              Enabled
-            </Label>
+            </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">API Key</p>
               <p className="text-xs text-muted-foreground">Apimart auth key.</p>
@@ -282,7 +280,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Submit / Task URL</p>
               <p className="text-xs text-muted-foreground">Image generation submit and task polling endpoints.</p>
@@ -293,7 +291,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Model + Polling</p>
               <p className="text-xs text-muted-foreground">Model name and poll behavior.</p>
@@ -306,7 +304,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Prompt</p>
               <p className="text-xs text-muted-foreground">Global transform prompt template.</p>
@@ -325,22 +323,21 @@ export default function SettingsPage() {
           <CardTitle>Moderation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-0 p-4 md:p-5">
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Enable Comment</p>
               <p className="text-xs text-muted-foreground">Toggle comment generation behavior.</p>
             </div>
-            <Label className="flex h-10 items-center gap-2">
-              <input
-                type="checkbox"
+            <div className="flex h-10 items-center justify-start">
+              <Switch
                 checked={!!form.enable_comment}
-                onChange={(e) => setField("enable_comment", e.target.checked)}
+                onCheckedChange={(checked) => setField("enable_comment", checked)}
+                ariaLabel="Enable Comment"
               />
-              Enabled
-            </Label>
+            </div>
           </div>
           <Separator className="my-3" />
-          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,1fr)] md:gap-6">
+          <div className="grid gap-3 md:grid-cols-[340px_minmax(0,560px)] md:gap-6">
             <div>
               <p className="text-sm font-medium">Block Keywords</p>
               <p className="text-xs text-muted-foreground">One keyword per line. Press Enter to add next line.</p>
@@ -391,10 +388,12 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <div className="fixed bottom-6 right-6">
+      <div className="fixed bottom-6 left-1/2 w-full max-w-[1100px] -translate-x-1/2 px-4">
+        <div className="flex justify-end">
         <Button onClick={handleSaveClick} disabled={saving || !dirty}>
           {saving ? "Saving..." : "Save"}
         </Button>
+        </div>
       </div>
 
       <ConfirmDialog
