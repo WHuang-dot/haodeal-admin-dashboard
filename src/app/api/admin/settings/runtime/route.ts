@@ -20,7 +20,7 @@ type RuntimeSettingsPayload = {
   image_transform_poll_timeout_ms?: number | null;
   image_transform_max_attempts?: number | null;
   enable_comment?: boolean | null;
-  deploy_webhook_url?: string | null;
+  block_keywords?: string[] | null;
 };
 
 const NUMBER_FIELDS: Array<keyof RuntimeSettingsPayload> = [
@@ -46,7 +46,6 @@ const STRING_FIELDS: Array<keyof RuntimeSettingsPayload> = [
   "image_transform_task_url_base",
   "image_transform_prompt",
   "image_transform_model",
-  "deploy_webhook_url",
 ];
 
 function normalizePayload(raw: Record<string, unknown>): RuntimeSettingsPayload {
@@ -91,32 +90,20 @@ function normalizePayload(raw: Record<string, unknown>): RuntimeSettingsPayload 
     normalized[field] = value.trim();
   }
 
-  return normalized;
-}
-
-async function triggerDeploy(url: string) {
-  const masked = url.length > 32 ? `${url.slice(0, 20)}...${url.slice(-8)}` : "****";
-
-  let res = await fetch(url, { method: "POST" });
-  if (res.status === 405) {
-    res = await fetch(url, { method: "GET" });
+  if ("block_keywords" in raw) {
+    const value = raw.block_keywords;
+    if (value === null) {
+      normalized.block_keywords = null;
+    } else if (Array.isArray(value)) {
+      normalized.block_keywords = value
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean);
+    } else {
+      throw new Error("INVALID_BLOCK_KEYWORDS");
+    }
   }
 
-  const text = await res.text();
-  return {
-    ok: res.ok,
-    status: res.status,
-    masked_url: masked,
-    body_preview: text.slice(0, 200),
-  };
-}
-
-function parseWebhookUrls(value: unknown): string[] {
-  if (typeof value !== "string") return [];
-  return value
-    .split(/\r?\n/)
-    .map((v) => v.trim())
-    .filter(Boolean);
+  return normalized;
 }
 
 function extractErrorDetails(err: unknown) {
@@ -151,6 +138,7 @@ export async function GET() {
             {
               singleton: true,
               enable_comment: true,
+              block_keywords: [],
             },
             { onConflict: "singleton" }
           )
@@ -172,7 +160,6 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   return withRole("admin", async () => {
-    let savedSettings: unknown = null;
     try {
       const raw = (await request.json()) as Record<string, unknown>;
       const payload = normalizePayload(raw);
@@ -192,73 +179,11 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (dbError) throw dbError;
-      savedSettings = data;
 
-      const webhookUrls = parseWebhookUrls(
-        (data as Record<string, unknown>).deploy_webhook_url
-      );
-      if (webhookUrls.length === 0) {
-        return success({
-          save: { ok: true },
-          deploy: { ok: false, reason: "MISSING_DEPLOY_WEBHOOK_URL" },
-          settings: data,
-        });
-      }
-
-      try {
-        const deployResults = await Promise.all(
-          webhookUrls.map(async (url, index) => {
-            const result = await triggerDeploy(url);
-            return { index, ...result };
-          })
-        );
-        const failed = deployResults.filter((r) => !r.ok);
-        const deploy = {
-          ok: failed.length === 0,
-          total: deployResults.length,
-          success: deployResults.length - failed.length,
-          failed: failed.length,
-          results: deployResults,
-        };
-
-        if (!deploy.ok) {
-          return error(
-            "Settings saved but one or more deploy triggers failed",
-            "DEPLOY_ERROR",
-            {
-              save: { ok: true },
-              deploy,
-              settings: data,
-            },
-            502
-          );
-        }
-
-        return success({
-          save: { ok: true },
-          deploy,
-          settings: data,
-        });
-      } catch (deployErr) {
-        const deployDetail = extractErrorDetails(deployErr);
-        return error(
-          "Settings saved but deploy trigger request failed",
-          "DEPLOY_ERROR",
-          {
-            save: { ok: true },
-            deploy: {
-              ok: false,
-              total: webhookUrls.length,
-              success: 0,
-              failed: webhookUrls.length,
-              results: [],
-              request_error: deployDetail,
-            },
-            settings: data,
-          },
-          502
-        );
-      }
+      return success({
+        save: { ok: true },
+        settings: data,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save runtime settings";
       if (msg.startsWith("INVALID_")) {
@@ -266,25 +191,6 @@ export async function PATCH(request: NextRequest) {
       }
       const detail = extractErrorDetails(err);
       console.error("Runtime settings save error:", detail);
-      if (savedSettings) {
-        return error(
-          "Settings saved but deploy failed",
-          "DEPLOY_ERROR",
-          {
-            save: { ok: true },
-            deploy: {
-              ok: false,
-              total: 0,
-              success: 0,
-              failed: 0,
-              results: [],
-              request_error: detail,
-            },
-            settings: savedSettings,
-          },
-          502
-        );
-      }
       return error("Failed to save runtime settings", "DB_ERROR", detail);
     }
   });

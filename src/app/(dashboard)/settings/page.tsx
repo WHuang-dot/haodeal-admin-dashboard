@@ -31,7 +31,7 @@ interface RuntimeSettings {
   image_transform_poll_timeout_ms?: number | null;
   image_transform_max_attempts?: number | null;
   enable_comment?: boolean | null;
-  deploy_webhook_url?: string | null;
+  block_keywords?: string[] | null;
 }
 
 interface SaveLogEntry {
@@ -51,15 +51,15 @@ function boolText(value: boolean | null | undefined) {
   return value ? "Enabled" : "Disabled";
 }
 
-function maskWebhookUrls(value: string): string {
+function blockKeywordsToText(value: string[] | null | undefined): string {
+  return (value ?? []).join("\n");
+}
+
+function textToBlockKeywords(value: string): string[] {
   return value
     .split(/\r?\n/)
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return "";
-      return "*".repeat(Math.max(8, Math.min(trimmed.length, 24)));
-    })
-    .join("\n");
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 export default function SettingsPage() {
@@ -71,7 +71,6 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<RuntimeSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [showWebhookUrl, setShowWebhookUrl] = useState(true);
   const [logs, setLogs] = useState<SaveLogEntry[]>([]);
 
   const form = useMemo(
@@ -105,6 +104,7 @@ export default function SettingsPage() {
         image_transform_poll_interval_ms: toNullableNumber(String(form.image_transform_poll_interval_ms ?? "")),
         image_transform_poll_timeout_ms: toNullableNumber(String(form.image_transform_poll_timeout_ms ?? "")),
         image_transform_max_attempts: toNullableNumber(String(form.image_transform_max_attempts ?? "")),
+        block_keywords: form.block_keywords ?? [],
       };
       appendLog("info", "save.start", payload);
 
@@ -124,25 +124,9 @@ export default function SettingsPage() {
         setDraft(null);
         appendLog("success", "save.success", json.data);
         toast.success("Settings saved");
-        if (json.data?.deploy?.ok) {
-          appendLog("success", "deploy.success", json.data.deploy);
-          toast.success(`Deploy triggered (${json.data.deploy.success}/${json.data.deploy.total})`);
-        } else {
-          appendLog("error", "deploy.not_triggered", json.data?.deploy);
-          toast.warning("Settings saved, but deploy not triggered");
-        }
       } else {
         appendLog("error", "save.failed", json);
-        if (json.code === "DEPLOY_ERROR" && json.details?.save?.ok) {
-          const deploy = json.details?.deploy;
-          if (deploy?.total) {
-            toast.warning(`Saved, deploy partial failure (${deploy.success}/${deploy.total})`);
-          } else {
-            toast.warning("Saved, but deploy failed");
-          }
-        } else {
-          toast.error(json.error || "Failed to save settings");
-        }
+        toast.error(json.error || "Failed to save settings");
       }
     } catch (err) {
       appendLog("error", "save.catch_error", {
@@ -156,8 +140,8 @@ export default function SettingsPage() {
 
   const handleSaveClick = () => {
     confirm({
-      title: "Save & Re-deploy",
-      description: "This will save settings and trigger a re-deploy. Continue?",
+      title: "Save Settings",
+      description: "This will save settings to Supabase. Continue?",
       confirmText: "Save",
       variant: "default",
       onConfirm: saveSettings,
@@ -185,7 +169,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 pb-24">
-      <PageHeader title="Settings" description="Runtime settings and deploy controls">
+      <PageHeader title="Settings" description="Runtime settings controls">
         <Badge variant="outline">{boolText(form.enable_comment)}</Badge>
       </PageHeader>
 
@@ -255,7 +239,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Deploy</CardTitle>
+          <CardTitle>Moderation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Label className="flex items-center gap-2">
@@ -267,27 +251,14 @@ export default function SettingsPage() {
             Enable Comment
           </Label>
           <div>
-            <Label>Deploy Webhook URL(s)</Label>
-            <div className="mt-1 flex gap-2">
-              <Textarea
-                value={
-                  showWebhookUrl
-                    ? form.deploy_webhook_url ?? ""
-                    : maskWebhookUrls(form.deploy_webhook_url ?? "")
-                }
-                onChange={(e) => {
-                  if (!showWebhookUrl) return;
-                  setField("deploy_webhook_url", e.target.value);
-                }}
-                placeholder={"http://coolify-1.../deploy?... \nhttp://coolify-2.../deploy?... \nhttp://coolify-3.../deploy?..."}
-                rows={4}
-                className="font-mono"
-                readOnly={!showWebhookUrl}
-              />
-              <Button type="button" variant="outline" onClick={() => setShowWebhookUrl((v) => !v)}>
-                {showWebhookUrl ? "Hide" : "Show"}
-              </Button>
-            </div>
+            <Label>Block Keywords (one per line)</Label>
+            <Textarea
+              value={blockKeywordsToText(form.block_keywords)}
+              onChange={(e) => setField("block_keywords", textToBlockKeywords(e.target.value))}
+              placeholder={"spam\nscam\nfake"}
+              rows={5}
+              className="font-mono"
+            />
           </div>
         </CardContent>
       </Card>
