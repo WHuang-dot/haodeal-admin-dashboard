@@ -64,7 +64,7 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<RuntimeSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [showWebhookUrl, setShowWebhookUrl] = useState(false);
+  const [showWebhookUrl, setShowWebhookUrl] = useState(true);
 
   const form = useMemo(
     () => draft ?? data ?? { singleton: true },
