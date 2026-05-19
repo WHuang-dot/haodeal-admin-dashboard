@@ -7,6 +7,7 @@ export function useApi<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +18,7 @@ export function useApi<T>(
         if (cancelled) return;
         if (json.ok) {
           setData(json.data);
+          setError(null);
         } else {
           setError(json.error || "Request failed");
         }
@@ -31,7 +33,16 @@ export function useApi<T>(
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, options, refreshKey]);
 
-  return { data, loading, error, refetch: () => setLoading(true) };
+  return {
+    data,
+    loading,
+    error,
+    refetch: async () => {
+      setLoading(true);
+      setError(null);
+      setRefreshKey((v) => v + 1);
+    },
+  };
 }

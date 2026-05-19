@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "@/hooks/use-api";
 import { useConfirmDialog } from "@/hooks/use-confirm";
 import { PageHeader } from "@/components/page-header";
@@ -62,7 +62,7 @@ function textToBlockKeywords(value: string): string[] {
 }
 
 export default function SettingsPage() {
-  const { data, loading, error } = useApi<RuntimeSettings>(
+  const { data, loading, error, refetch } = useApi<RuntimeSettings>(
     "/api/admin/settings/runtime"
   );
   const { confirm, open, options, close } = useConfirmDialog();
@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [logs, setLogs] = useState<SaveLogEntry[]>([]);
+  const blockKeywordsRef = useRef<HTMLTextAreaElement | null>(null);
 
   const form = useMemo(
     () => draft ?? data ?? { singleton: true },
@@ -90,6 +91,17 @@ export default function SettingsPage() {
     const time = new Date().toLocaleTimeString();
     setLogs((prev) => [{ time, level, message, data }, ...prev].slice(0, 200));
   };
+
+  const resizeBlockKeywords = () => {
+    const el = blockKeywordsRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    resizeBlockKeywords();
+  }, [form.block_keywords]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -122,6 +134,9 @@ export default function SettingsPage() {
       if (json.ok) {
         setDraft(null);
         appendLog("success", "save.success", json.data);
+        appendLog("info", "save.refetch.start");
+        await refetch();
+        appendLog("success", "save.refetch.done");
         toast.success("Settings saved");
       } else {
         appendLog("error", "save.failed", json);
@@ -149,7 +164,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-5">
         <PageHeader title="Settings" description="Runtime settings and deploy controls" />
       </div>
     );
@@ -157,7 +172,7 @@ export default function SettingsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-5">
         <PageHeader title="Settings" description="Runtime settings and deploy controls" />
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
@@ -167,7 +182,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-20 md:space-y-5 md:pb-24">
       <PageHeader title="Settings" description="Runtime settings controls">
         <Badge variant="outline">{boolText(form.enable_comment)}</Badge>
       </PageHeader>
@@ -176,7 +191,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>URL Screenshot</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 md:gap-4 md:p-5">
           <Label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -197,7 +212,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Image Transform</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 md:gap-4 md:p-5">
           <Label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -240,7 +255,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Moderation</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 p-4 md:space-y-4 md:p-5">
           <Label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -252,11 +267,15 @@ export default function SettingsPage() {
           <div>
             <Label>Block Keywords (one per line)</Label>
             <Textarea
+              ref={blockKeywordsRef}
               value={blockKeywordsToText(form.block_keywords)}
-              onChange={(e) => setField("block_keywords", textToBlockKeywords(e.target.value))}
+              onChange={(e) => {
+                setField("block_keywords", textToBlockKeywords(e.target.value));
+                requestAnimationFrame(resizeBlockKeywords);
+              }}
               placeholder={"spam\nscam\nfake"}
-              rows={5}
-              className="font-mono"
+              rows={2}
+              className="font-mono min-h-[92px] overflow-hidden"
             />
           </div>
         </CardContent>
@@ -266,13 +285,13 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Settings Save Logs (Admin)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-5">
           <div className="mb-3 flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setLogs([])}>
               Clear Logs
             </Button>
           </div>
-          <div className="max-h-96 overflow-auto rounded-md border border-border">
+          <div className="max-h-64 overflow-auto rounded-md border border-border md:max-h-80">
             {logs.length === 0 ? (
               <div className="p-3 text-sm text-muted-foreground">No logs yet.</div>
             ) : (
