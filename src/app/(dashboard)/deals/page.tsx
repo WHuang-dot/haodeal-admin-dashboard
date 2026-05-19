@@ -115,6 +115,7 @@ export default function DealsPage() {
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFullscreen, setPreviewFullscreen] = useState(false);
 
   const limit = 20;
 
@@ -318,7 +319,10 @@ export default function DealsPage() {
                 className="relative aspect-[4/3] cursor-zoom-in bg-muted"
                 onClick={() => {
                   const preview = deal.cover_image_url || deal.cover_thumbnail_url;
-                  if (preview) setPreviewUrl(preview);
+                  if (preview) {
+                    setPreviewUrl(preview);
+                    setPreviewFullscreen(false);
+                  }
                 }}
               >
                 {deal.cover_thumbnail_url || deal.cover_image_url ? (
@@ -441,17 +445,36 @@ export default function DealsPage() {
           onConfirm={options.onConfirm}
         />
       )}
-      <Dialog open={!!previewUrl} onOpenChange={(isOpen) => !isOpen && setPreviewUrl(null)}>
+      <Dialog
+        open={!!previewUrl}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setPreviewUrl(null);
+            setPreviewFullscreen(false);
+          }
+        }}
+      >
         <DialogContent className="h-screen w-screen max-w-none rounded-none border-0 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Deal Image Preview</DialogTitle>
           </DialogHeader>
           {previewUrl && (
-            <img
-              src={previewUrl}
-              alt="Deal preview"
-              className="h-[calc(100vh-6rem)] w-full rounded-lg object-contain"
-            />
+            <button
+              type="button"
+              onClick={() => setPreviewFullscreen((v) => !v)}
+              className="flex h-[calc(100vh-6rem)] w-full items-center justify-center overflow-auto rounded-lg bg-black/20"
+              title={previewFullscreen ? "Click to restore original size view" : "Click to fullscreen fit"}
+            >
+              <img
+                src={previewUrl}
+                alt="Deal preview"
+                className={
+                  previewFullscreen
+                    ? "h-full w-full object-contain"
+                    : "h-auto w-auto max-h-none max-w-none object-none"
+                }
+              />
+            </button>
           )}
         </DialogContent>
       </Dialog>
