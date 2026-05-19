@@ -57,10 +57,10 @@ function hasAccess(userRole: UserRole, minRole: UserRole) {
 }
 
 const navItems: NavItem[] = [
+  { href: "/deals", label: "Deals", icon: ShoppingBag, minRole: "viewer" },
   { href: "/", label: "Status", icon: LayoutDashboard, exact: true, minRole: "viewer" },
   { href: "/pipeline", label: "Pipeline", icon: Zap, minRole: "operator" },
   { href: "/clusters", label: "Clusters", icon: MessageSquare, minRole: "viewer" },
-  { href: "/deals", label: "Deals", icon: ShoppingBag, minRole: "viewer" },
   
   { href: "/stores", label: "Stores", icon: Store, minRole: "admin" },
   { href: "/categories", label: "Categories", icon: Tags, minRole: "admin" },
