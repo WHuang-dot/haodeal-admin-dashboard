@@ -130,3 +130,34 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .market-shell {
+    isolation: isolate;
+  }
+
+  .market-bg {
+    background:
+      radial-gradient(65% 45% at 10% 0%, rgba(56, 132, 255, 0.14), transparent 60%),
+      radial-gradient(45% 35% at 90% 15%, rgba(99, 102, 241, 0.12), transparent 60%),
+      linear-gradient(180deg, #090b0f 0%, #0d1015 45%, #0b0e13 100%);
+  }
+
+  .market-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 80% at 50% 20%, transparent 40%, rgba(0, 0, 0, 0.36) 100%);
+  }
+
+  .market-panel {
+    backdrop-filter: blur(10px);
+  }
+
+  .market-card {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 14px 30px rgba(0, 0, 0, 0.35);
+  }
+}

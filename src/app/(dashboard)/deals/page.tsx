@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/use-api";
 import { useConfirmDialog } from "@/hooks/use-confirm";
@@ -11,8 +10,15 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -22,16 +28,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertCircle,
-  AlertTriangle,
-  ChevronLeft,
-  ExternalLink,
+  ChevronDown,
+  Eye,
   ImageIcon,
   Loader2,
+  MoreHorizontal,
   Search,
   ShoppingBag,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -75,6 +81,8 @@ interface CategoryItem {
   subcategory: string;
 }
 
+type SortOption = "newest" | "likes" | "clicks" | "price";
+
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "active", label: "Active" },
@@ -100,7 +108,47 @@ function getCategoryLabel(deal: Deal) {
 
 function getPriceLabel(price: string | number | null) {
   if (price === null || price === undefined || price === "") return "-";
-  return String(price);
+  if (typeof price === "number") return `$${price}`;
+  const trimmed = String(price).trim();
+  return trimmed.startsWith("$") ? trimmed : trimmed;
+}
+
+function parsePriceNumber(price: string | number | null) {
+  if (price === null || price === undefined || price === "") return -1;
+  if (typeof price === "number") return price;
+  const normalized = String(price).replace(/[^0-9.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
+function sortDeals(deals: Deal[], sortBy: SortOption) {
+  const copy = [...deals];
+  if (sortBy === "likes") {
+    return copy.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+  }
+  if (sortBy === "clicks") {
+    return copy.sort((a, b) => (b.clicks ?? 0) - (a.clicks ?? 0));
+  }
+  if (sortBy === "price") {
+    return copy.sort((a, b) => parsePriceNumber(b.price) - parsePriceNumber(a.price));
+  }
+  return copy.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+function DealCardSkeleton() {
+  return (
+    <Card className="market-card overflow-hidden border border-white/10 bg-white/[0.02]">
+      <Skeleton className="aspect-[4/5] w-full rounded-none bg-white/[0.06]" />
+      <CardContent className="space-y-3 p-4">
+        <Skeleton className="h-5 w-5/6 bg-white/[0.08]" />
+        <Skeleton className="h-6 w-2/5 bg-white/[0.12]" />
+        <Skeleton className="h-4 w-full bg-white/[0.08]" />
+        <Skeleton className="h-4 w-4/5 bg-white/[0.08]" />
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function DealsPage() {
@@ -112,6 +160,7 @@ export default function DealsPage() {
   const [storeFilter, setStoreFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
@@ -121,7 +170,15 @@ export default function DealsPage() {
   const limit = 20;
 
   const listQueryKey = useMemo(
-    () => JSON.stringify({ tab, statusFilter, storeFilter, categoryFilter, search, refreshKey }),
+    () =>
+      JSON.stringify({
+        tab,
+        statusFilter,
+        storeFilter,
+        categoryFilter,
+        search,
+        refreshKey,
+      }),
     [tab, statusFilter, storeFilter, categoryFilter, search, refreshKey]
   );
 
@@ -129,30 +186,17 @@ export default function DealsPage() {
     const params = new URLSearchParams();
     params.set("limit", String(limit));
     params.set("offset", String(offset));
-    if (tab === "unresolved") {
-      params.set("unresolved", "true");
-    }
-    if (statusFilter && statusFilter !== "all") {
-      params.set("status", statusFilter);
-    }
-    if (storeFilter && storeFilter !== "all") {
-      params.set("store_code", storeFilter);
-    }
-    if (categoryFilter && categoryFilter !== "all") {
-      params.set("category_code", categoryFilter);
-    }
-    if (search.trim()) {
-      params.set("search", search.trim());
-    }
+    if (tab === "unresolved") params.set("unresolved", "true");
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (storeFilter !== "all") params.set("store_code", storeFilter);
+    if (categoryFilter !== "all") params.set("category_code", categoryFilter);
+    if (search.trim()) params.set("search", search.trim());
     params.set("_t", String(refreshKey));
     return `/api/admin/deals?${params.toString()}`;
   }, [offset, tab, statusFilter, storeFilter, categoryFilter, search, refreshKey]);
 
-  const {
-    data: listData,
-    loading: listLoading,
-    error: listError,
-  } = useApi<DealsResponse>(listUrl);
+  const { data: listData, loading: listLoading, error: listError } =
+    useApi<DealsResponse>(listUrl);
 
   const { data: storesResponse } = useApi<{ data: StoreItem[] }>("/api/admin/stores");
   const { data: categoriesResponse } = useApi<{ data: CategoryItem[] }>(
@@ -160,9 +204,9 @@ export default function DealsPage() {
   );
 
   const pageDeals = useMemo(() => listData?.data ?? [], [listData]);
-  const total = listData?.total ?? 0;
   const stores = storesResponse?.data ?? [];
   const categories = categoriesResponse?.data ?? [];
+  const total = listData?.total ?? 0;
   const hasMore = loadedDeals.length < total;
   const isInitialLoading = listLoading && offset === 0 && loadedDeals.length === 0;
   const isLoadingMore = listLoading && offset > 0;
@@ -196,19 +240,16 @@ export default function DealsPage() {
         const first = entries[0];
         if (!first?.isIntersecting) return;
         if (listLoading || !hasMore) return;
-        setOffset((o) => o + limit);
+        setOffset((prev) => prev + limit);
       },
-      { rootMargin: "400px 0px" }
+      { rootMargin: "360px 0px" }
     );
 
     observer.observe(target);
     return () => observer.disconnect();
   }, [hasMore, limit, listLoading]);
 
-  const handleTabChange = (value: string) => {
-    setTab(value);
-    setOffset(0);
-  };
+  const displayDeals = useMemo(() => sortDeals(loadedDeals, sortBy), [loadedDeals, sortBy]);
 
   const handleDeleteDeal = (deal: Deal) => {
     confirm({
@@ -218,18 +259,13 @@ export default function DealsPage() {
       variant: "destructive",
       onConfirm: async () => {
         try {
-          const res = await fetch(`/api/admin/deals/${deal.id}`, {
-            method: "DELETE",
-          });
+          const res = await fetch(`/api/admin/deals/${deal.id}`, { method: "DELETE" });
           const json = await res.json();
-          if (!json.ok) {
-            throw new Error(json.error || "Failed to delete deal");
-          }
+          if (!json.ok) throw new Error(json.error || "Failed to delete deal");
           toast.success("Deal deleted");
           setRefreshKey((k) => k + 1);
         } catch (err) {
           toast.error(err instanceof Error ? err.message : "Failed to delete deal");
-          console.error("Delete deal failed:", err);
         }
       },
     });
@@ -238,244 +274,280 @@ export default function DealsPage() {
   if (listError) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Deals" description="Manage extracted deals" />
+        <PageHeader title="Deals" description="Premium marketplace discovery view" />
         <EmptyState icon={AlertCircle} title="Failed to load deals" description={listError} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Deals" description="Manage extracted deals">
-        <div className="text-sm text-muted-foreground">{total} total</div>
-      </PageHeader>
+    <div className="market-shell relative space-y-6">
+      <div className="market-bg pointer-events-none absolute inset-0 -z-10" />
 
-      <Tabs value={tab} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="unresolved">Unresolved</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="mx-auto w-full max-w-[1560px] space-y-6 px-2 md:px-4">
+        <PageHeader title="Deals" description="Discover premium opportunities with elegant signal-first ranking">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-sky-300/80" />
+            {total} total
+          </div>
+        </PageHeader>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="flex flex-1 items-center gap-2">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search title or brand..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setOffset(0);
-            }}
-            className="max-w-xs"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => {
-              setStatusFilter(v ?? "all");
-              setOffset(0);
-            }}
-          >
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={storeFilter}
-            onValueChange={(v) => {
-              setStoreFilter(v ?? "all");
-              setOffset(0);
-            }}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Store" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stores</SelectItem>
-              {stores.map((s) => (
-                <SelectItem key={s.code} value={s.code}>
-                  {s.name_cn || s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={categoryFilter}
-            onValueChange={(v) => {
-              setCategoryFilter(v ?? "all");
-              setOffset(0);
-            }}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {isInitialLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {Array.from({ length: limit }).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="aspect-[2/1] w-full" />
-              <CardContent className="space-y-1.5 p-2">
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : loadedDeals.length === 0 ? (
-        <EmptyState
-          icon={ShoppingBag}
-          title="No deals found"
-          description="Try adjusting your filters or search."
-        />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {loadedDeals.map((deal) => (
-            <Card
-              key={deal.id}
-              className="overflow-hidden transition-colors hover:border-primary/40"
-            >
-              <div
-                className="relative aspect-[2/1] cursor-zoom-in bg-muted"
-                onClick={() => {
-                  const preview = deal.cover_image_url || deal.cover_thumbnail_url;
-                  if (preview) {
-                    setPreviewUrl(preview);
-                    setPreviewFullscreen(false);
-                  }
-                }}
-              >
-                {deal.cover_thumbnail_url || deal.cover_image_url ? (
-                  <img
-                    src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
-                    alt={getDealDisplayTitle(deal)}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
-                  </div>
-                )}
+        <section className="market-panel rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md md:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search products, brands, or keywords..."
+                  className="h-11 rounded-2xl border-white/12 bg-black/25 pl-10 text-sm shadow-inner"
+                />
               </div>
-              <button
+              <div className="flex items-center gap-2">
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                  <SelectTrigger className="h-10 w-[170px] rounded-xl border-white/12 bg-black/25 text-xs tracking-wide uppercase">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="likes">Most Liked</SelectItem>
+                    <SelectItem value="clicks">Most Clicked</SelectItem>
+                    <SelectItem value="price">Highest Price</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
                 type="button"
-                onClick={() => router.push(`/deals/${deal.id}`)}
-                className="block w-full text-left"
+                variant={tab === "all" ? "secondary" : "outline"}
+                size="sm"
+                className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
+                onClick={() => setTab("all")}
               >
-                <CardContent className="space-y-1 p-2">
+                All
+              </Button>
+              <Button
+                type="button"
+                variant={tab === "unresolved" ? "secondary" : "outline"}
+                size="sm"
+                className="h-8 rounded-full border-white/12 bg-black/20 text-xs"
+                onClick={() => setTab("unresolved")}
+              >
+                Unresolved
+              </Button>
+
+              <div className="mx-1 hidden h-5 w-px bg-white/12 md:block" />
+
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+                <SelectTrigger className="h-8 w-36 rounded-full border-white/12 bg-black/20 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v ?? "all")}>
+                <SelectTrigger className="h-8 w-40 rounded-full border-white/12 bg-black/20 text-xs">
+                  <SelectValue placeholder="Store" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stores</SelectItem>
+                  {stores.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name_cn || s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
+                <SelectTrigger className="h-8 w-44 rounded-full border-white/12 bg-black/20 text-xs">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.subcategory ? `${c.category} / ${c.subcategory}` : c.category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+
+        {isInitialLoading ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: limit }).map((_, idx) => (
+              <DealCardSkeleton key={idx} />
+            ))}
+          </div>
+        ) : displayDeals.length === 0 ? (
+          <EmptyState
+            icon={ShoppingBag}
+            title="No deals found"
+            description="Try adjusting search or filters."
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {displayDeals.map((deal) => {
+              const storeLabel = getStoreLabel(deal);
+              const categoryLabel = getCategoryLabel(deal);
+              const hasImage = Boolean(deal.cover_thumbnail_url || deal.cover_image_url);
+              return (
+                <Card
+                  key={deal.id}
+                  className="market-card group overflow-hidden rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_20px_45px_rgba(30,136,229,0.18)]"
+                >
                   <div
-                    className="line-clamp-2 min-h-6 text-[11px] font-semibold leading-3.5"
-                    title={getDealDisplayTitle(deal)}
+                    className="relative aspect-[4/5] cursor-zoom-in overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-700/50 to-slate-900/85"
+                    onClick={() => {
+                      const preview = deal.cover_image_url || deal.cover_thumbnail_url;
+                      if (preview) {
+                        setPreviewUrl(preview);
+                        setPreviewFullscreen(false);
+                      }
+                    }}
                   >
-                    {getDealDisplayTitle(deal)}
-                  </div>
+                    {hasImage ? (
+                      <img
+                        src={deal.cover_thumbnail_url || deal.cover_image_url || ""}
+                        alt={getDealDisplayTitle(deal)}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <div className="rounded-full border border-white/20 bg-white/10 p-3 backdrop-blur-sm">
+                          <ImageIcon className="h-5 w-5 text-white/60" />
+                        </div>
+                      </div>
+                    )}
 
-                  <div className="space-y-0 text-[9px] leading-3.5 text-muted-foreground">
-                    <p className="truncate">Platform: {deal.platform || "-"}</p>
-                    <p className="truncate">Brand: {deal.brand || "-"}</p>
-                    <p>Price: {getPriceLabel(deal.price)}</p>
-                    <p className="truncate">Store: {getStoreLabel(deal)}</p>
-                    <p className="truncate">Category: {getCategoryLabel(deal)}</p>
-                  </div>
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
 
-                  <div className="flex flex-wrap gap-0.5">
-                    {deal.store_match_status === "unmatched" && (
+                    <div className="absolute top-2 right-2 opacity-0 transition duration-200 group-hover:opacity-100">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white/80 backdrop-blur-md hover:bg-black/65"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-36">
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/deals/${deal.id}`)}
+                          >
+                            <Eye className="mr-1 h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            className="cursor-pointer"
+                            onClick={() => handleDeleteDeal(deal)}
+                          >
+                            <Trash2 className="mr-1 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="absolute bottom-2 left-2">
                       <Badge
                         variant="outline"
-                        className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
+                        className="rounded-full border-white/20 bg-black/30 px-2 py-0.5 text-[10px] text-white/80 backdrop-blur-sm"
                       >
-                        <AlertTriangle className="mr-1 h-3 w-3" />
-                        Store Unmatched
+                        {deal.status || "unknown"}
                       </Badge>
-                    )}
-                    {deal.category_match_status === "unmatched" && (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
-                      >
-                        <AlertTriangle className="mr-1 h-3 w-3" />
-                        Category Unmatched
-                      </Badge>
-                    )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[9px]">
-                    <Badge variant="outline">{deal.status || "-"}</Badge>
-                    <span className="text-muted-foreground">
-                      Likes {deal.likes ?? 0} | Clicks {deal.clicks ?? 0}
-                    </span>
-                  </div>
-                </CardContent>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/deals/${deal.id}`)}
+                    className="block w-full text-left"
+                  >
+                    <CardContent className="space-y-3 p-4">
+                      <div className="space-y-1">
+                        <h3
+                          className="line-clamp-2 text-[15px] leading-5 font-semibold tracking-tight text-foreground"
+                          title={getDealDisplayTitle(deal)}
+                        >
+                          {getDealDisplayTitle(deal)}
+                        </h3>
+                        <p className="text-lg leading-none font-bold text-white/95">
+                          {getPriceLabel(deal.price)}
+                        </p>
+                      </div>
 
-              <div className="flex items-center justify-end gap-1 border-t px-2 py-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteDeal(deal);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-                <Link
-                  href={`/deals/${deal.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View
-                </Link>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                        <div className="truncate text-white/45">Platform</div>
+                        <div className="truncate text-white/80">{deal.platform || "-"}</div>
+                        <div className="truncate text-white/45">Brand</div>
+                        <div className="truncate text-white/80">{deal.brand || "-"}</div>
+                        <div className="truncate text-white/45">Store</div>
+                        <div className="truncate text-white/80">{storeLabel}</div>
+                        <div className="truncate text-white/45">Category</div>
+                        <div className="truncate text-white/80">{categoryLabel}</div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1">
+                        {deal.store_match_status === "unmatched" && (
+                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[10px] text-white/70">
+                            Store pending
+                          </span>
+                        )}
+                        {deal.category_match_status === "unmatched" && (
+                          <span className="inline-flex items-center rounded-full border border-white/16 bg-white/8 px-2 py-0.5 text-[10px] text-white/70">
+                            Category pending
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-white/10 pt-2 text-[11px] text-white/65">
+                        <span>Likes {(deal.likes ?? 0).toLocaleString()}</span>
+                        <span>Clicks {(deal.clicks ?? 0).toLocaleString()}</span>
+                      </div>
+                    </CardContent>
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="market-panel rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-2 text-xs text-white/55">
+            Showing {displayDeals.length} of {total}
+          </div>
+          <div ref={loadMoreRef} className="flex min-h-10 items-center justify-center">
+            {isLoadingMore ? (
+              <div className="inline-flex items-center gap-2 text-xs text-white/65">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading more deals...
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <div className="text-sm text-muted-foreground">
-          Showing {loadedDeals.length} of {total}
-        </div>
-        <div ref={loadMoreRef} className="flex min-h-10 items-center justify-center">
-          {isLoadingMore ? (
-            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading more deals...
-            </div>
-          ) : hasMore ? (
-            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <ChevronLeft className="h-3.5 w-3.5 rotate-[-90deg]" />
-              Scroll down to load more
-            </div>
-          ) : loadedDeals.length > 0 ? (
-            <div className="text-xs text-muted-foreground">All deals loaded</div>
-          ) : null}
+            ) : hasMore ? (
+              <div className="inline-flex items-center gap-1 text-xs text-white/50">
+                <ChevronDown className="h-3.5 w-3.5" />
+                Scroll to load more
+              </div>
+            ) : displayDeals.length > 0 ? (
+              <div className="text-xs text-white/45">All deals loaded</div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -491,6 +563,7 @@ export default function DealsPage() {
           onConfirm={options.onConfirm}
         />
       )}
+
       <Dialog
         open={!!previewUrl}
         onOpenChange={(isOpen) => {
@@ -500,7 +573,7 @@ export default function DealsPage() {
           }
         }}
       >
-        <DialogContent className="inset-0 top-0 left-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-4 sm:max-w-none sm:p-6">
+        <DialogContent className="inset-0 top-0 left-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 bg-[#0a0d11]/92 p-4 sm:max-w-none sm:p-6">
           <DialogHeader>
             <DialogTitle>Deal Image Preview</DialogTitle>
           </DialogHeader>
@@ -508,8 +581,12 @@ export default function DealsPage() {
             <button
               type="button"
               onClick={() => setPreviewFullscreen((v) => !v)}
-              className="flex h-[calc(100vh-6rem)] w-full items-center justify-center overflow-auto rounded-lg bg-black/20"
-              title={previewFullscreen ? "Click to restore original size view" : "Click to fullscreen fit"}
+              className="flex h-[calc(100vh-6rem)] w-full items-center justify-center overflow-auto rounded-xl border border-white/10 bg-black/35"
+              title={
+                previewFullscreen
+                  ? "Click to restore original size view"
+                  : "Click to fullscreen fit"
+              }
             >
               <img
                 src={previewUrl}
