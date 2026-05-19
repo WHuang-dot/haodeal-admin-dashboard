@@ -3,6 +3,28 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { withAuth } from "@/lib/api/auth-guard";
 import { success, error } from "@/lib/api/response";
 
+type ImageDbRow = {
+  id: string;
+  r2_original_url: string | null;
+  source_url: string | null;
+  r2_thumbnail_url: string | null;
+  role: string | null;
+  width: number | null;
+  height: number | null;
+  selected_for_draft: boolean | null;
+  r2_original_key: string | null;
+  r2_thumbnail_key: string | null;
+  image_provider: string | null;
+  deal_id: string | null;
+  draft_id: string | null;
+};
+
+type DealDbRow = {
+  id: string;
+  title_cn: string | null;
+  title_en: string | null;
+};
+
 export async function GET(request: NextRequest) {
   return withAuth(async () => {
     try {
@@ -30,8 +52,41 @@ export async function GET(request: NextRequest) {
 
       if (dbError) throw dbError;
 
+      const dealIds = Array.from(
+        new Set(
+          (rawData ?? [])
+            .map((img) => (img as ImageDbRow).deal_id)
+            .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+        )
+      );
+
+      const dealsMap = new Map<
+        string,
+        { id: string; title_cn: string | null; title_en: string | null }
+      >();
+
+      if (dealIds.length > 0) {
+        const { data: dealsData, error: dealsError } = await supabaseAdmin
+          .from("deals")
+          .select("id, title_cn, title_en")
+          .in("id", dealIds);
+
+        if (dealsError) throw dealsError;
+
+        for (const deal of dealsData ?? []) {
+          const row = deal as DealDbRow;
+          dealsMap.set(row.id, {
+            id: row.id,
+            title_cn: row.title_cn ?? null,
+            title_en: row.title_en ?? null,
+          });
+        }
+      }
+
       // Map DB field names to API field names
-      const mappedData = (rawData ?? []).map((img: any) => ({
+      const mappedData = (rawData ?? []).map((row) => {
+        const img = row as ImageDbRow;
+        return {
         id: img.id,
         url: img.r2_original_url || img.source_url || "",
         thumbnail_url: img.r2_thumbnail_url || img.r2_original_url || img.source_url || "",
@@ -43,8 +98,11 @@ export async function GET(request: NextRequest) {
         provider: img.image_provider || "r2",
         deal_id: img.deal_id,
         draft_id: img.draft_id,
-        deal: null,
-      }));
+        deal:
+          typeof img.deal_id === "string" && dealsMap.has(img.deal_id)
+            ? dealsMap.get(img.deal_id)
+            : null,
+      }});
 
       return success({
         data: mappedData,

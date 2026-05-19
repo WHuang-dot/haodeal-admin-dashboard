@@ -38,7 +38,11 @@ interface ImageItem {
   r2_key: string;
   provider: string;
   deal_id?: string | null;
-  deal?: { id: string; title: string } | null;
+  deal?: {
+    id: string;
+    title_cn?: string | null;
+    title_en?: string | null;
+  } | null;
 }
 
 interface ImagesResponse {
@@ -86,6 +90,10 @@ interface ActionLogItem {
   imageId: string;
   phase: string;
   payload?: unknown;
+}
+
+function getDealDisplayTitle(deal?: { title_cn?: string | null; title_en?: string | null } | null) {
+  return deal?.title_cn || deal?.title_en || "Untitled Deal";
 }
 
 export default function ImagesPage() {
@@ -416,11 +424,12 @@ export default function ImagesPage() {
                   <p className="text-xs text-muted-foreground">
                     {image.width} x {image.height}
                   </p>
-                  {image.deal && (
-                    <p className="truncate text-xs text-muted-foreground">
-                      Deal: {image.deal.title}
-                    </p>
-                  )}
+                  <p className="truncate text-xs text-muted-foreground">
+                    Deal ID: {image.deal_id || "—"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Deal: {getDealDisplayTitle(image.deal)}
+                  </p>
                 </div>
               </div>
             ))}
