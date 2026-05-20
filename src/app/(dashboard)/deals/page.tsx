@@ -313,7 +313,7 @@ export default function DealsPage() {
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search keyword..."
+                    placeholder="Search keyword or deal ID..."
                     className="h-10 rounded-xl border-white/12 bg-black/25 pl-10 text-sm shadow-inner"
                   />
                 </div>

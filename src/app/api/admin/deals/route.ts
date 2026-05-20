@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       const status = searchParams.get("status") ?? undefined;
       const storeCode = searchParams.get("store_code") ?? undefined;
       const categoryCode = searchParams.get("category_code") ?? undefined;
-      const search = searchParams.get("search") ?? undefined;
+      const search = searchParams.get("search")?.trim() ?? "";
       const unresolved = searchParams.get("unresolved") === "true";
       const limit = parseInt(searchParams.get("limit") ?? "20", 10);
       const offset = parseInt(searchParams.get("offset") ?? "0", 10);
@@ -41,20 +41,19 @@ export async function GET(request: NextRequest) {
         query = query.or("store_match_status.eq.unmatched,category_match_status.eq.unmatched");
       }
       if (search) {
-        const safeSearch = search.trim().replace(/[%]/g, "\\%").replace(/[_]/g, "\\_");
-        const escapedSearch = safeSearch.replace(/,/g, "\\,");
+        // Keep the query grammar simple and robust for PostgREST OR filters.
+        const safeSearch = search.replace(/[%]/g, "\\%").replace(/[_]/g, "\\_");
         const isUuid =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
             safeSearch
           );
 
         const keywordConditions = [
-          `title_en.ilike.%${escapedSearch}%`,
-          `title_cn.ilike.%${escapedSearch}%`,
-          `brand.ilike.%${escapedSearch}%`,
-          `platform.ilike.%${escapedSearch}%`,
-          `store_code.ilike.%${escapedSearch}%`,
-          `category_code.ilike.%${escapedSearch}%`,
+          `title_en.ilike.%${safeSearch}%`,
+          `title_cn.ilike.%${safeSearch}%`,
+          `brand.ilike.%${safeSearch}%`,
+          `store_code.ilike.%${safeSearch}%`,
+          `category_code.ilike.%${safeSearch}%`,
         ];
 
         if (isUuid) {
