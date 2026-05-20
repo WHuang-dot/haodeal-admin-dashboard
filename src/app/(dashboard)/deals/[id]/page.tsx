@@ -161,6 +161,8 @@ export default function DealDetailPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [editingDealJson, setEditingDealJson] = useState("");
+  const [savingDeal, setSavingDeal] = useState(false);
   const { confirm, open, options, close } = useConfirmDialog();
 
   const detailUrl = useMemo(
@@ -524,6 +526,17 @@ export default function DealDetailPage() {
     return () => clearInterval(timer);
   }, [regeneratingImageIds.size]);
 
+  useEffect(() => {
+    if (!deal) return;
+    const plainDeal = Object.fromEntries(
+      Object.entries(deal as Record<string, unknown>).filter(
+        ([key]) => key !== "stores" && key !== "categories"
+      )
+    );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditingDealJson(JSON.stringify(plainDeal, null, 2));
+  }, [deal]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -562,6 +575,40 @@ export default function DealDetailPage() {
   const dealTableFields = Object.entries(deal as Record<string, unknown>)
     .filter(([key]) => key !== "stores" && key !== "categories")
     .sort(([a], [b]) => a.localeCompare(b));
+
+  const saveDealFields = async () => {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(editingDealJson) as Record<string, unknown>;
+    } catch {
+      toast.error("Invalid JSON format");
+      return;
+    }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      toast.error("Deal payload must be a JSON object");
+      return;
+    }
+
+    setSavingDeal(true);
+    try {
+      const res = await fetch(`/api/admin/deals/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        throw new Error(json.error || "Failed to update deal");
+      }
+      toast.success("Deal updated");
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update deal");
+    } finally {
+      setSavingDeal(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -849,6 +896,26 @@ export default function DealDetailPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Edit Deal (JSON)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            value={editingDealJson}
+            onChange={(e) => setEditingDealJson(e.target.value)}
+            rows={16}
+            className="font-mono text-xs"
+          />
+          <div className="flex justify-end">
+            <Button onClick={saveDealFields} disabled={savingDeal}>
+              {savingDeal ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Deal
+            </Button>
           </div>
         </CardContent>
       </Card>

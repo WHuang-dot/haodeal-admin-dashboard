@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { withAuth, withRole } from "@/lib/api/auth-guard";
-import { success, error, notFound } from "@/lib/api/response";
+import { success, error, notFound, badRequest } from "@/lib/api/response";
 
 function toNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -144,6 +144,51 @@ export async function DELETE(
     } catch (err) {
       console.error("Deal delete error:", err);
       return error("Failed to delete deal", "DB_ERROR");
+    }
+  });
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return withRole("operator", async () => {
+    try {
+      const { id } = await params;
+      const body = (await request.json()) as Record<string, unknown>;
+
+      if (!body || typeof body !== "object") {
+        return badRequest("Invalid request body");
+      }
+
+      const updates: Record<string, unknown> = { ...body };
+
+      // Immutable/system-managed fields
+      delete updates.id;
+      delete updates.created_at;
+      delete updates.updated_at;
+      delete updates.stores;
+      delete updates.categories;
+
+      if (Object.keys(updates).length === 0) {
+        return badRequest("No updatable fields provided");
+      }
+
+      const { data, error: dbError } = await supabaseAdmin
+        .from("deals")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select(
+          `*, stores:store_code(name, name_cn, aliases, domains), categories:category_code(category, subcategory, aliases)`
+        )
+        .single();
+
+      if (dbError) throw dbError;
+
+      return success(data, "Deal updated");
+    } catch (err) {
+      console.error("Deal update error:", err);
+      return error("Failed to update deal", "DB_ERROR");
     }
   });
 }
