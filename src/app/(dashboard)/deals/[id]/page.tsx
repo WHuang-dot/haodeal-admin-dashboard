@@ -161,8 +161,9 @@ export default function DealDetailPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [editingDealJson, setEditingDealJson] = useState("");
-  const [savingDeal, setSavingDeal] = useState(false);
+  const [editingFieldKey, setEditingFieldKey] = useState<string | null>(null);
+  const [editingFieldValue, setEditingFieldValue] = useState("");
+  const [savingField, setSavingField] = useState(false);
   const { confirm, open, options, close } = useConfirmDialog();
 
   const detailUrl = useMemo(
@@ -526,17 +527,6 @@ export default function DealDetailPage() {
     return () => clearInterval(timer);
   }, [regeneratingImageIds.size]);
 
-  useEffect(() => {
-    if (!deal) return;
-    const plainDeal = Object.fromEntries(
-      Object.entries(deal as Record<string, unknown>).filter(
-        ([key]) => key !== "stores" && key !== "categories"
-      )
-    );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditingDealJson(JSON.stringify(plainDeal, null, 2));
-  }, [deal]);
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -576,37 +566,84 @@ export default function DealDetailPage() {
     .filter(([key]) => key !== "stores" && key !== "categories")
     .sort(([a], [b]) => a.localeCompare(b));
 
-  const saveDealFields = async () => {
-    let parsed: Record<string, unknown>;
+  const IMMUTABLE_FIELDS = new Set(["id", "created_at", "updated_at"]);
+
+  const stringifyFieldValue = (value: unknown) => {
+    if (value === null) return "null";
+    if (typeof value === "object") return JSON.stringify(value, null, 2);
+    return String(value);
+  };
+
+  const startEditField = (key: string, value: unknown) => {
+    setEditingFieldKey(key);
+    setEditingFieldValue(stringifyFieldValue(value));
+  };
+
+  const cancelEditField = () => {
+    setEditingFieldKey(null);
+    setEditingFieldValue("");
+  };
+
+  const parseFieldValueByOriginal = (raw: string, originalValue: unknown) => {
+    const trimmed = raw.trim();
+    if (trimmed === "null") return null;
+
+    if (originalValue === null) {
+      if (trimmed === "") return null;
+      return raw;
+    }
+
+    if (typeof originalValue === "number") {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) throw new Error("Must be a valid number");
+      return n;
+    }
+
+    if (typeof originalValue === "boolean") {
+      if (trimmed === "true") return true;
+      if (trimmed === "false") return false;
+      throw new Error("Must be true or false");
+    }
+
+    if (typeof originalValue === "object") {
+      return JSON.parse(raw) as unknown;
+    }
+
+    return raw;
+  };
+
+  const confirmEditField = async (key: string, originalValue: unknown) => {
+    if (IMMUTABLE_FIELDS.has(key)) {
+      toast.error(`${key} cannot be edited`);
+      return;
+    }
+
+    let parsedValue: unknown;
     try {
-      parsed = JSON.parse(editingDealJson) as Record<string, unknown>;
-    } catch {
-      toast.error("Invalid JSON format");
+      parsedValue = parseFieldValueByOriginal(editingFieldValue, originalValue);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid field value");
       return;
     }
 
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      toast.error("Deal payload must be a JSON object");
-      return;
-    }
-
-    setSavingDeal(true);
+    setSavingField(true);
     try {
       const res = await fetch(`/api/admin/deals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
+        body: JSON.stringify({ [key]: parsedValue }),
       });
       const json = await res.json();
       if (!json.ok) {
         throw new Error(json.error || "Failed to update deal");
       }
-      toast.success("Deal updated");
+      toast.success(`${key} updated`);
+      cancelEditField();
       setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update deal");
     } finally {
-      setSavingDeal(false);
+      setSavingField(false);
     }
   };
 
@@ -880,42 +917,65 @@ export default function DealDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Deals Table Fields (All)</CardTitle>
+          <CardTitle className="text-base">Deals Table Fields (All, Click To Edit)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3">
             {dealTableFields.map(([key, value]) => (
               <div key={key} className="rounded-md border border-white/10 bg-white/[0.02] p-3">
-                <div className="text-xs text-muted-foreground">{key}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-muted-foreground">{key}</div>
+                  {!IMMUTABLE_FIELDS.has(key) && editingFieldKey !== key && (
+                    <Button size="xs" variant="outline" onClick={() => startEditField(key, value)}>
+                      Edit
+                    </Button>
+                  )}
+                </div>
                 <div className="mt-1 break-all font-mono text-xs text-foreground">
-                  {value === null
-                    ? "null"
-                    : typeof value === "object"
-                    ? JSON.stringify(value)
-                    : String(value)}
+                  {editingFieldKey === key ? (
+                    <div className="space-y-2">
+                      {typeof value === "object" ? (
+                        <Textarea
+                          value={editingFieldValue}
+                          onChange={(e) => setEditingFieldValue(e.target.value)}
+                          rows={5}
+                          className="font-mono text-xs"
+                        />
+                      ) : (
+                        <Input
+                          value={editingFieldValue}
+                          onChange={(e) => setEditingFieldValue(e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button size="xs" variant="ghost" onClick={cancelEditField} disabled={savingField}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="xs"
+                          onClick={() => confirmEditField(key, value)}
+                          disabled={savingField}
+                        >
+                          {savingField ? (
+                            <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Check className="mr-1 h-3 w-3" />
+                          )}
+                          Confirm
+                        </Button>
+                      </div>
+                    </div>
+                  ) : value === null ? (
+                    "null"
+                  ) : typeof value === "object" ? (
+                    JSON.stringify(value)
+                  ) : (
+                    String(value)
+                  )}
                 </div>
               </div>
             ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Edit Deal (JSON)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            value={editingDealJson}
-            onChange={(e) => setEditingDealJson(e.target.value)}
-            rows={16}
-            className="font-mono text-xs"
-          />
-          <div className="flex justify-end">
-            <Button onClick={saveDealFields} disabled={savingDeal}>
-              {savingDeal ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Deal
-            </Button>
           </div>
         </CardContent>
       </Card>
