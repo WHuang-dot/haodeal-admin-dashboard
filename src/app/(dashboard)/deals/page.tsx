@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertCircle,
   ChevronDown,
   Eye,
   ImageIcon,
@@ -216,7 +215,6 @@ export default function DealsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
-    setLoadedDeals([]);
     setFailedImageIds(new Set());
     setImageSrcOverride({});
   }, [listQueryKey]);
@@ -279,15 +277,6 @@ export default function DealsPage() {
       },
     });
   };
-
-  if (listError) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Deals" description="Premium marketplace discovery view" />
-        <EmptyState icon={AlertCircle} title="Failed to load deals" description={listError} />
-      </div>
-    );
-  }
 
   return (
     <div className="market-shell relative space-y-6">
@@ -603,6 +592,15 @@ export default function DealsPage() {
             ) : null}
           </div>
         </div>
+
+        {listError && (
+          <Card className="border border-red-400/30 bg-red-500/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-red-100">Failed to load deals</CardTitle>
+              <CardDescription className="text-red-200/85">{listError}</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
           </div>
         </div>
       </div>

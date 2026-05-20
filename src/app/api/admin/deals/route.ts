@@ -48,19 +48,19 @@ export async function GET(request: NextRequest) {
             safeSearch
           );
 
-        const keywordConditions = [
-          `title_en.ilike.%${safeSearch}%`,
-          `title_cn.ilike.%${safeSearch}%`,
-          `brand.ilike.%${safeSearch}%`,
-          `store_code.ilike.%${safeSearch}%`,
-          `category_code.ilike.%${safeSearch}%`,
-        ];
-
         if (isUuid) {
-          keywordConditions.unshift(`id.eq.${safeSearch}`);
+          // UUID search uses direct equality to avoid PostgREST OR parser/type edge cases.
+          query = query.eq("id", safeSearch);
+        } else {
+          const keywordConditions = [
+            `title_en.ilike.%${safeSearch}%`,
+            `title_cn.ilike.%${safeSearch}%`,
+            `brand.ilike.%${safeSearch}%`,
+            `store_code.ilike.%${safeSearch}%`,
+            `category_code.ilike.%${safeSearch}%`,
+          ];
+          query = query.or(keywordConditions.join(","));
         }
-
-        query = query.or(keywordConditions.join(","));
       }
 
       query = query.order("created_at", { ascending: false });
