@@ -920,7 +920,7 @@ export default function DealDetailPage() {
           <CardTitle className="text-base">Deals Table Fields (All, Click To Edit)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {dealTableFields.map(([key, value]) => (
               <div key={key} className="rounded-md border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between gap-2">
