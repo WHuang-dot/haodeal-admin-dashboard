@@ -559,6 +559,9 @@ export default function DealDetailPage() {
   }
 
   const title = getDealDisplayTitle(deal);
+  const dealTableFields = Object.entries(deal as Record<string, unknown>)
+    .filter(([key]) => key !== "stores" && key !== "categories")
+    .sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="space-y-6">
@@ -827,6 +830,28 @@ export default function DealDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Deals Table Fields (All)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {dealTableFields.map(([key, value]) => (
+              <div key={key} className="rounded-md border border-white/10 bg-white/[0.02] p-3">
+                <div className="text-xs text-muted-foreground">{key}</div>
+                <div className="mt-1 break-all font-mono text-xs text-foreground">
+                  {value === null
+                    ? "null"
+                    : typeof value === "object"
+                    ? JSON.stringify(value)
+                    : String(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Drafts Section */}
       <Card>
