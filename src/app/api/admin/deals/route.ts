@@ -41,9 +41,27 @@ export async function GET(request: NextRequest) {
         query = query.or("store_match_status.eq.unmatched,category_match_status.eq.unmatched");
       }
       if (search) {
-        query = query.or(
-          `title_en.ilike.%${search}%,title_cn.ilike.%${search}%,brand.ilike.%${search}%,coupon_code.ilike.%${search}%`
-        );
+        const safeSearch = search.trim().replace(/[%]/g, "\\%").replace(/[_]/g, "\\_");
+        const escapedSearch = safeSearch.replace(/,/g, "\\,");
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            safeSearch
+          );
+
+        const keywordConditions = [
+          `title_en.ilike.%${escapedSearch}%`,
+          `title_cn.ilike.%${escapedSearch}%`,
+          `brand.ilike.%${escapedSearch}%`,
+          `platform.ilike.%${escapedSearch}%`,
+          `store_code.ilike.%${escapedSearch}%`,
+          `category_code.ilike.%${escapedSearch}%`,
+        ];
+
+        if (isUuid) {
+          keywordConditions.unshift(`id.eq.${safeSearch}`);
+        }
+
+        query = query.or(keywordConditions.join(","));
       }
 
       query = query.order("created_at", { ascending: false });
