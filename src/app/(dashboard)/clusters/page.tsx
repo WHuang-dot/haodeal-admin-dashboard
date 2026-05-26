@@ -40,9 +40,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  FileDown,
   SkipForward,
   AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 
 interface Cluster {
@@ -55,7 +55,7 @@ interface Cluster {
 }
 
 interface ClusterDetail {
-  cluster: Cluster;
+  cluster: Cluster & { error?: string | null };
   messages: Array<{
     id: string;
     content: string;
@@ -125,6 +125,16 @@ function formatTimeRange(createdAt: string, updatedAt: string) {
   return `${created.toLocaleDateString()} - ${updated.toLocaleDateString()}`;
 }
 
+function canRequeueForExtract(status: string): boolean {
+  return status !== "open";
+}
+
+function requeueButtonLabel(status: string): string {
+  if (status === "closed") return "Queue Extract";
+  if (status === "failed") return "Retry Extract";
+  return "Re-queue Extract";
+}
+
 export default function ClustersPage() {
   const [offset, setOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -166,6 +176,8 @@ export default function ClustersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+
   useEffect(() => {
     if (!selectedClusterId) return;
     setDetailLoading(true);
@@ -184,28 +196,52 @@ export default function ClustersPage() {
         setDetailError("Failed to load details");
         setDetailLoading(false);
       });
-  }, [selectedClusterId]);
+  }, [selectedClusterId, detailRefreshKey]);
 
-  const handleAction = async (
-    cluster: Cluster,
-    action: "extract" | "skip"
-  ) => {
+  const handleRequeue = async (cluster: Cluster) => {
     confirm({
-      title: action === "extract" ? "Extract Cluster" : "Skip Cluster",
-      description: `Are you sure you want to ${action} cluster #${cluster.id.slice(0, 8)}?`,
-      confirmText: action === "extract" ? "Extract" : "Skip",
-      variant: action === "skip" ? "destructive" : "default",
+      title: requeueButtonLabel(cluster.status),
+      description: `Reset cluster #${cluster.id.slice(0, 8)} to closed? The extraction service will pick it up on the next run.${cluster.status === "failed" ? " Any previous error will be cleared." : ""}`,
+      confirmText: requeueButtonLabel(cluster.status),
       onConfirm: async () => {
-        const res = await fetch(`/api/admin/clusters/${cluster.id}/${action}`, {
+        const res = await fetch(`/api/admin/clusters/${cluster.id}/extract`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
         const json = await res.json();
         if (json.ok) {
-          toast.success(json.message || `Cluster ${action}ed`);
+          toast.success(json.message || "Cluster re-queued for extraction");
           setRefreshKey((k) => k + 1);
+          if (selectedClusterId === cluster.id) {
+            setDetailRefreshKey((k) => k + 1);
+          }
         } else {
-          toast.error(json.error || `Failed to ${action} cluster`);
+          toast.error(json.error || "Failed to re-queue cluster");
+        }
+      },
+    });
+  };
+
+  const handleSkip = async (cluster: Cluster) => {
+    confirm({
+      title: "Skip Cluster",
+      description: `Are you sure you want to skip cluster #${cluster.id.slice(0, 8)}?`,
+      confirmText: "Skip",
+      variant: "destructive",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/clusters/${cluster.id}/skip`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        if (json.ok) {
+          toast.success(json.message || "Cluster skipped");
+          setRefreshKey((k) => k + 1);
+          if (selectedClusterId === cluster.id) {
+            setDetailRefreshKey((k) => k + 1);
+          }
+        } else {
+          toast.error(json.error || "Failed to skip cluster");
         }
       },
     });
@@ -235,7 +271,10 @@ export default function ClustersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Clusters" description="Manage deal clusters">
+      <PageHeader
+        title="Clusters"
+        description="Re-queue clusters for extraction by resetting status to closed."
+      >
         <div className="text-sm text-muted-foreground">
           {total} total
         </div>
@@ -342,20 +381,21 @@ export default function ClustersPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        disabled={!canRequeueForExtract(cluster.status)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAction(cluster, "extract");
+                          handleRequeue(cluster);
                         }}
                       >
-                        <FileDown className="h-3.5 w-3.5 mr-1" />
-                        Extract
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                        {requeueButtonLabel(cluster.status)}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAction(cluster, "skip");
+                          handleSkip(cluster);
                         }}
                       >
                         <SkipForward className="h-3.5 w-3.5 mr-1" />
@@ -450,6 +490,30 @@ export default function ClustersPage() {
                   </div>
                 </div>
               </div>
+
+              {detailData.cluster.error && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  <div className="font-medium text-destructive mb-1">
+                    Last extraction error
+                  </div>
+                  <p className="text-destructive/90 whitespace-pre-wrap">
+                    {detailData.cluster.error}
+                  </p>
+                </div>
+              )}
+
+              {canRequeueForExtract(detailData.cluster.status) && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleRequeue(detailData.cluster)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    {requeueButtonLabel(detailData.cluster.status)}
+                  </Button>
+                </div>
+              )}
 
               {detailData.messages.length > 0 && (
                 <div>
