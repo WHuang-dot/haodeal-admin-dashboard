@@ -83,6 +83,20 @@ interface DealImage {
   height: number | null;
 }
 
+function getImageDisplayName(image: DealImage) {
+  const fromOriginal = image.r2_original_url;
+  const fromThumb = image.r2_thumbnail_url;
+  const raw = fromOriginal || fromThumb;
+  if (!raw) return `image-${image.id.slice(0, 8)}`;
+  try {
+    const url = new URL(raw);
+    const filename = url.pathname.split("/").filter(Boolean).pop();
+    return filename || `image-${image.id.slice(0, 8)}`;
+  } catch {
+    return raw;
+  }
+}
+
 interface DealDetailResponse {
   deal: Deal;
   drafts: Draft[];
@@ -853,9 +867,18 @@ export default function DealDetailPage() {
                 {images.map((img) => (
                   <div
                     key={img.id}
-                    className="relative aspect-square rounded-md border bg-muted overflow-hidden group cursor-pointer"
+                    className="relative rounded-md border bg-muted overflow-hidden group cursor-pointer"
                     onClick={() => window.open(img.r2_original_url || "", "_blank")}
                   >
+                    <div className="border-b border-border/70 bg-background/70 px-2 py-1">
+                      <p
+                        className="truncate text-[10px] text-muted-foreground"
+                        title={getImageDisplayName(img)}
+                      >
+                        {getImageDisplayName(img)}
+                      </p>
+                    </div>
+                    <div className="relative aspect-square">
                     {img.r2_thumbnail_url ? (
                       <img
                         src={img.r2_thumbnail_url}
@@ -906,6 +929,7 @@ export default function DealDetailPage() {
                         <Trash2 className="h-3 w-3 mr-1" />
                         {deletingImageIds.has(img.id) ? "Deleting" : "Delete"}
                       </Button>
+                    </div>
                     </div>
                   </div>
                 ))}
