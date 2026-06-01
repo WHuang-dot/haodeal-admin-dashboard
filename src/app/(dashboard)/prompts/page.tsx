@@ -43,6 +43,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Settings, Plus, Eye, Zap, Pencil } from "lucide-react";
+import { normalizePromptModel } from "@/lib/prompts/model-utils";
 
 interface Prompt {
   id: string;
@@ -63,12 +64,14 @@ const KINDS = [
 
 function PromptForm({
   initialData,
+  modelOptions,
   onSubmit,
   onCancel,
   loading,
   submitLabel,
 }: {
   initialData?: Prompt;
+  modelOptions: string[];
   onSubmit: (data: Partial<Prompt>) => void;
   onCancel: () => void;
   loading: boolean;
@@ -76,7 +79,8 @@ function PromptForm({
 }) {
   const [kind, setKind] = useState(initialData?.kind ?? "extract");
   const [name, setName] = useState(initialData?.name ?? "");
-  const [model, setModel] = useState(initialData?.model ?? "");
+  const initialModel = normalizePromptModel(initialData?.model) ?? modelOptions[0] ?? "";
+  const [model, setModel] = useState(initialModel);
   const [body, setBody] = useState(initialData?.body ?? "");
   const [notes, setNotes] = useState(initialData?.notes ?? "");
 
@@ -119,10 +123,26 @@ function PromptForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="model">Model</Label>
+        <Select value={model} onValueChange={setModel}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select model" />
+          </SelectTrigger>
+          <SelectContent>
+            {modelOptions.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+            {model && !modelOptions.includes(model) && (
+              <SelectItem value={model}>{`Current (Unknown): ${model}`}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
         <Input
           id="model"
           value={model}
           onChange={(e) => setModel(e.target.value)}
+          placeholder="Or type a new model value"
           required
         />
       </div>
@@ -165,7 +185,7 @@ function PromptForm({
 
 export default function PromptsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data: prompts, loading, error } = useApi<{ data: Prompt[] }>(
+  const { data: prompts, loading, error } = useApi<{ data: Prompt[]; model_options?: string[] }>(
     `/api/admin/prompts?r=${refreshKey}`
   );
   const [createOpen, setCreateOpen] = useState(false);
@@ -220,6 +240,7 @@ export default function PromptsPage() {
           return a.active ? -1 : 1;
         }),
   }));
+  const modelOptions = prompts?.model_options ?? [];
 
   if (loading) {
     return (
@@ -399,6 +420,7 @@ export default function PromptsPage() {
           </DialogHeader>
           <div className="overflow-y-auto">
             <PromptForm
+              modelOptions={modelOptions}
               onSubmit={(data) => createPrompt(data)}
               onCancel={() => setCreateOpen(false)}
               loading={creating}
@@ -419,6 +441,7 @@ export default function PromptsPage() {
             {editPrompt && (
               <PromptForm
                 initialData={editPrompt}
+                modelOptions={modelOptions}
                 onSubmit={(data) => updatePrompt(data)}
                 onCancel={() => setEditPrompt(null)}
                 loading={updating}

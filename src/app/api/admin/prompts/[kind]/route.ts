@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { withRole } from "@/lib/api/auth-guard";
 import { success, error, notFound, badRequest } from "@/lib/api/response";
+import { normalizePromptModel } from "@/lib/prompts/model-utils";
 
 export async function PUT(
   request: NextRequest,
@@ -19,7 +20,13 @@ export async function PUT(
 
       const updates: Record<string, unknown> = {};
       if (name !== undefined) updates.name = name;
-      if (model !== undefined) updates.model = model;
+      if (model !== undefined) {
+        const normalizedModel = normalizePromptModel(model);
+        if (!normalizedModel) {
+          return badRequest("INVALID_MODEL");
+        }
+        updates.model = normalizedModel;
+      }
       if (promptBody !== undefined) updates.body = promptBody;
       if (notes !== undefined) updates.notes = notes;
 

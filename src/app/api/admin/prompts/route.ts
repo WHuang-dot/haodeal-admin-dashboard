@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { withRole } from "@/lib/api/auth-guard";
 import { success, error, badRequest } from "@/lib/api/response";
+import { normalizePromptModel } from "@/lib/prompts/model-utils";
 
 export async function GET(request: NextRequest) {
   return withRole("admin", async () => {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       if (dbError) throw dbError;
 
       // Map DB field is_active to active for API
-      const mappedData = (data ?? []).map((p: any) => ({
+      const mappedData = (data ?? []).map((p: Record<string, unknown>) => ({
         id: p.id,
         kind: p.kind,
         name: p.name,
@@ -36,8 +37,17 @@ export async function GET(request: NextRequest) {
         notes: p.notes,
       }));
 
+      const modelOptions = Array.from(
+        new Set(
+          mappedData
+            .map((p) => normalizePromptModel(p.model))
+            .filter((v): v is string => Boolean(v))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+
       return success({
         data: mappedData,
+        model_options: modelOptions,
         total: count ?? 0,
         limit,
         offset,
@@ -63,13 +73,18 @@ export async function POST(request: NextRequest) {
         return badRequest("notes is required when creating a prompt");
       }
 
+      const normalizedModel = normalizePromptModel(model);
+      if (!normalizedModel) {
+        return badRequest("INVALID_MODEL");
+      }
+
       const { data, error: dbError } = await supabaseAdmin
         .from("prompts")
         .insert({
           kind,
           name,
           body: promptBody,
-          model: model ?? "gpt-4o",
+          model: normalizedModel,
           notes,
           is_active: false,
         })
