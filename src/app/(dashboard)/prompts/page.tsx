@@ -123,28 +123,30 @@ function PromptForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="model">Model</Label>
-        <Select value={model} onValueChange={setModel}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select model" />
-          </SelectTrigger>
-          <SelectContent>
-            {modelOptions.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-            {model && !modelOptions.includes(model) && (
-              <SelectItem value={model}>{`Current (Unknown): ${model}`}</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-        <Input
-          id="model"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          placeholder="Or type a new model value"
-          required
-        />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Select value={model} onValueChange={setModel}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent>
+              {modelOptions.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+              {model && !modelOptions.includes(model) && (
+                <SelectItem value={model}>{`Current (Unknown): ${model}`}</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <Input
+            id="model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="Or type a new model value"
+            required
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="body">Body</Label>
